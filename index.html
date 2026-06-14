@@ -15213,17 +15213,18 @@ setInterval(async () => {
         let timeDiff = Date.now() - (lastMsg.timestamp || Date.now());
         let minutesPassed = timeDiff / (1000 * 60);
 
-        // 触发条件：距离上次TA说话过去了至少 30 分钟，但小于 12 小时 (半天)
-        if (minutesPassed >= 30 && minutesPassed <= 720) {
-            
-            // 冷却期检查：为了防止疯狂扣你 API 的钱，规定TA主动找你一次后，至少要隔 3 个小时才能再次【主动】找你
-            let lastActiveInitiate = parseInt(localStorage.getItem('oc_ai_last_active_time_' + charId)) || 0;
-            let cooldownMins = (Date.now() - lastActiveInitiate) / (1000 * 60);
-            if (cooldownMins < 180) continue; 
+// 触发条件：距离上次TA说话过去了至少 10 分钟 (原来是 30)
+if (minutesPassed >= 10 && minutesPassed <= 720) {
+    
+    // 冷却期检查：规定TA主动找你一次后，只需隔 30 分钟就能再次找你 (原来是 180 分钟/3小时，不然你测试要等死)
+    let lastActiveInitiate = parseInt(localStorage.getItem('oc_ai_last_active_time_' + charId)) || 0;
+    let cooldownMins = (Date.now() - lastActiveInitiate) / (1000 * 60);
+    if (cooldownMins < 30) continue; 
 
-            // 4. 掷骰子：每分钟只有大约 3% 的概率触发（极度拟真：他想起来才找你，平均期望是再等 30~50 分钟才会发）
-            if (Math.random() < 0.05) {
-                console.log(`[主动发信触发] 目标: ${charId}`);
+    // 4. 掷骰子：每分钟有 20% 的概率触发 (原来是 5%)
+    // 期望值：满足10分钟不说话后，平均再等 3~5 分钟就一定会触发！
+    if (Math.random() < 0.20) {
+        console.log(`[主动发信触发] 目标: ${charId}`);
                 
                 // 立刻记录这次触发的时间，锁死 3 小时冷却
                 localStorage.setItem('oc_ai_last_active_time_' + charId, Date.now());
