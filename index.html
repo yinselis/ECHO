@@ -12029,11 +12029,10 @@ if (msg.quote) {
 
 } else {
     // 我方（右侧）：头像在右下角，所以把【右下角】改成 4px，其他角 22px
-    myBubbleClass = `msg-type-text px-[15px] py-[10px] text-[15px] relative shadow-[0_2px_6px_rgba(0,0,0,0.05)] break-words whitespace-pre-wrap leading-snug w-fit h-fit text-left`;
-    myBubbleStyle = `background: ${bubbleColor}; color: ${bubbleTextColor}; border-radius: 22px 22px 4px 22px; border: none;`; 
+    myBubbleClass = `msg-type-text px-[15px] py-[10px] text-[0.95rem] relative shadow-[0_2px_6px_rgba(0,0,0,0.05)] break-words whitespace-pre-wrap leading-snug w-fit h-fit text-left`;    myBubbleStyle = `background: ${bubbleColor}; color: ${bubbleTextColor}; border-radius: 22px 22px 4px 22px; border: none;`; 
     
     // 对方（左侧）：头像在左下角，所以把【左下角】改成 4px，其他角 22px
-    taBubbleClass = `msg-type-text px-[15px] py-[10px] text-[15px] relative shadow-[0_2px_6px_rgba(0,0,0,0.05)] break-words whitespace-pre-wrap leading-snug w-fit h-fit text-left`;
+    taBubbleClass = `msg-type-text px-[15px] py-[10px] text-[0.95rem] relative shadow-[0_2px_6px_rgba(0,0,0,0.05)] break-words whitespace-pre-wrap leading-snug w-fit h-fit text-left`;
     taBubbleStyle = `background-color: white; color: var(--ink); border-radius: 22px 22px 22px 4px; border: none;`; 
 }
 
@@ -15289,6 +15288,25 @@ setInterval(async () => {
         }
     }
 }, 30000); // 60000 毫秒 = 1 分钟检测一次
+
+// 测试系统弹窗按钮逻辑
+window.testSysNotification = function() {
+    const status = Notification.permission;
+    alert("当前权限状态：" + status);
+
+    if (status === "granted") {
+        if (navigator.serviceWorker) {
+            navigator.serviceWorker.ready.then(function(registration) {
+                registration.showNotification("ECHO 测试", { 
+                    body: "太棒了！你的安卓系统底层弹窗完全正常！",
+                    icon: 'https://yinselis.github.io/ECHO/icon.png',
+                    vibrate: [200, 100, 200]
+                });
+                alert("已经让邮差去发通知了！看看顶部有没有震动并滑出横幅？");
+            });
+        }
+    }
+}
 </script>    
     <script>
 /* --- app_group_chat.js --- */
