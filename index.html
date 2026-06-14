@@ -14494,7 +14494,29 @@ document.addEventListener('click', function requestNotify() {
     document.removeEventListener('click', requestNotify);
 }, { once: true });
 
+// 1. 进来先雇佣邮差（注册 Service Worker）
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(err => console.log('邮差雇佣失败', err));
+}
 
+// 覆盖你原本的函数：发送手机系统级横幅通知（带专属头像版）
+window.sendSystemNotification = function(title, body) {
+    if (window.Notification && Notification.permission === "granted") {
+        if (navigator.serviceWorker) {
+            navigator.serviceWorker.ready.then(function(registration) {
+                registration.showNotification(title, {
+                    body: body,
+                    icon: 'https://yinselis.github.io/ECHO/icon.png', // 👉 你的绝对路径头像
+                    vibrate: [200, 100, 200]
+                });
+            }).catch(function() {
+                if (typeof window.showGlobalNotification === 'function') window.showGlobalNotification(title, body);
+            });
+        }
+    } else {
+        if (typeof window.showGlobalNotification === 'function') window.showGlobalNotification(title, body);
+    }
+};
 
 window.blockChatContact = function() {
     if (!currentChatId) return;
@@ -15133,29 +15155,23 @@ You and the user haven't talked for a while.`;
     const recentMsgs = messages.filter(m => m.role !== 'system').slice(-50);
     
     recentMsgs.forEach(m => {
-        // 给历史记录带上时间戳，让 AI 知道上次聊天是几点
-        let timePrefix = '';
-        if (m.timestamp) {
-            let d = new Date(m.timestamp);
-            timePrefix = `[${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}] `;
-        }
-        
-        let content = m.content || '';
-        // 排除掉纯图片等无法识别的代码
-        if (m.imageUrl) content = "[发送了一张图片]";
-        
-        apiMessages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: timePrefix + content });
-    });
+    let timePrefix = '';
+    if (m.timestamp) {
+        let d = new Date(m.timestamp);
+        timePrefix = `[${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}] `;
+    }
+    let content = m.content || '';
+    if (m.imageUrl) content = "[发送了一张图片]";
+    apiMessages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: timePrefix + content });
+});
 
-// ================= 【新增：防复读机强力补丁】 =================
 apiMessages.push({ 
     role: 'user', 
-    content: `[系统强制指令：距离上次聊天已经过去了一段时间。现在真实时间是 ${currentTimeStr}。请你根据现在的时间、你的设定以及你现在可能在做的事情，主动发一条新消息找我。绝对不要重复你之前说过的话。]` 
+    content: `[系统强制指令：距离上次聊天已经过去了一段时间。现在真实时间是 ${currentTimeStr}。请你根据现在的时间、你的设定以及你现在可能在做的事情，联系上下文，主动发一条新消息找我。绝对不要重复你之前说过的话！]` 
 });
-// ========================================================
 
-    try {
-        const response = await fetch(`${apiUrl}/v1/chat/completions`, {
+try {
+    const response = await fetch(`${apiUrl}/v1/chat/completions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
             body: JSON.stringify({ model: model, messages: apiMessages, temperature: 0.8 })
@@ -15203,20 +15219,19 @@ setInterval(async () => {
         let timeDiff = Date.now() - (lastMsg.timestamp || Date.now());
         let minutesPassed = timeDiff / (1000 * 60);
 
-// 触发条件：距离上次TA说话过去了至少 10 分钟 (原来是 30)
-if (minutesPassed >= 10 && minutesPassed <= 720) {
-    
-    // 冷却期检查：规定TA主动找你一次后，只需隔 30 分钟就能再次找你 (原来是 180 分钟/3小时，不然你测试要等死)
-    let lastActiveInitiate = parseInt(localStorage.getItem('oc_ai_last_active_time_' + charId)) || 0;
-    let cooldownMins = (Date.now() - lastActiveInitiate) / (1000 * 60);
-    if (cooldownMins < 30) continue; 
+// 1. 憋气时间：你离开超过 15 分钟，它才发现你不在了
+        if (minutesPassed >= 15 && minutesPassed <= 720) {
+            
+            // 2. 冷却时间：发过一次消息后，乖乖等你，1小时内绝不再烦你
+            let lastActiveInitiate = parseInt(localStorage.getItem('oc_ai_last_active_time_' + charId)) || 0;
+            let cooldownMins = (Date.now() - lastActiveInitiate) / (1000 * 60);
+            if (cooldownMins < 60) continue; 
 
-    // 4. 掷骰子：每分钟有 20% 的概率触发 (原来是 5%)
-    // 期望值：满足10分钟不说话后，平均再等 3~5 分钟就一定会触发！
-    if (Math.random() < 0.20) {
-        console.log(`[主动发信触发] 目标: ${charId}`);
+            // 3. 触发概率：每隔5分钟来看你一次，每次 30% 的概率忍不住发消息
+            if (Math.random() < 0.30) {
+                console.log(`[主动发信触发] 目标: ${charId}`);
                 
-                // 立刻记录这次触发的时间，锁死 3 小时冷却
+                // 立刻记录这次触发的时间，锁死 30 分钟冷却
                 localStorage.setItem('oc_ai_last_active_time_' + charId, Date.now());
 
                 const char = chars.find(c => c.id === charId);
@@ -15230,12 +15245,11 @@ if (minutesPassed >= 10 && minutesPassed <= 720) {
 
                     // 防冲突：发送前再拉取一次最新记录，防止这段时间内你正好给他发了消息
                     let freshMsgs = await window.getFromDB(chatKey) || [];
-                    let previewText = bubbles[bubbles.length - 1]; 
 
                     // 将 AI 生成的话以气泡形式塞入数据库
                     for (let i = 0; i < bubbles.length; i++) {
                         freshMsgs.push({
-                            role: 'assistant', // AI 身份
+                            role: 'assistant',
                             content: bubbles[i],
                             msgType: 'text',
                             timestamp: Date.now() + i
@@ -15243,19 +15257,27 @@ if (minutesPassed >= 10 && minutesPassed <= 720) {
                     }
                     await window.saveToDB(chatKey, freshMsgs);
 
-                    // 5. 触发手机浏览器横幅通知 / 屏幕顶部通知
+                    // 👇=== 连环横幅弹窗魔法 ===👇
                     const remarkName = localStorage.getItem('oc_phone_chat_remark_' + charId);
                     const displayName = remarkName ? remarkName : char.name;
                     
-                    if (typeof window.sendSystemNotification === 'function') {
-                        window.sendSystemNotification(displayName, previewText);
-                    } else if (typeof window.showGlobalNotification === 'function') {
-                        window.showGlobalNotification(displayName, previewText);
-                    } else if (typeof window.showToast === 'function') {
-                        window.showToast(`[新消息] ${displayName}: ${previewText.substring(0, 10)}...`);
+                    for (let i = 0; i < bubbles.length; i++) {
+                        // 模拟打字延迟：从第二条消息开始，每条等 1.5 秒再弹横幅
+                        if (i > 0) {
+                            await new Promise(res => setTimeout(res, 1500));
+                        }
+                        
+                        if (typeof window.sendSystemNotification === 'function') {
+                            window.sendSystemNotification(displayName, bubbles[i]);
+                        } else if (typeof window.showGlobalNotification === 'function') {
+                            window.showGlobalNotification(displayName, bubbles[i]);
+                        } else if (typeof window.showToast === 'function') {
+                            window.showToast(`[新消息] ${displayName}: ${bubbles[i].substring(0, 10)}...`);
+                        }
                     }
+                    // 👆========================👆
 
-                    // 6. 如果此时你正好在看聊天列表或者开着聊天室，偷偷无感刷新屏幕气泡
+                    // 如果此时你正好在看聊天列表或者开着聊天室，偷偷无感刷新屏幕气泡
                     if (typeof renderChatRecent === 'function') renderChatRecent();
                     if (window.currentChatId === charId && typeof renderChatMessages === 'function') {
                         await renderChatMessages(true);
@@ -15266,7 +15288,7 @@ if (minutesPassed >= 10 && minutesPassed <= 720) {
             }
         }
     }
-}, 60000); // 60000 毫秒 = 1 分钟检测一次
+}, 30000); // 60000 毫秒 = 1 分钟检测一次
 </script>    
     <script>
 /* --- app_group_chat.js --- */
@@ -19648,24 +19670,6 @@ function applyFontSettings(sizeScale, weight) {
         .text-3xl { font-size: calc(1.875rem * ${ratio}) !important; line-height: calc(2.25rem * ${ratio}) !important; }
         .text-4xl { font-size: calc(2.25rem * ${ratio}) !important; line-height: calc(2.5rem * ${ratio}) !important; }
         .text-6xl { font-size: calc(3.75rem * ${ratio}) !important; line-height: 1 !important; }
-        
-        /* === 强制接管：聊天室气泡和输入框 === */
-        .msg-type-text { 
-            font-size: calc(15px * ${ratio}) !important; 
-            line-height: calc(22px * ${ratio}) !important; 
-        }
-        #chat-input-text {
-            font-size: calc(15px * ${ratio}) !important; 
-        }
-
-        /* === 强制接管：外部聊天列表（单聊/群聊/联系人）的精细字号 === */
-        #chat-recent-container .text-\\[16px\\], #chat-contacts-container .text-\\[16px\\], #chat-groups-container .text-\\[16px\\] { font-size: calc(16px * ${ratio}) !important; }
-        #chat-recent-container .text-\\[15px\\], #chat-contacts-container .text-\\[15px\\], #chat-groups-container .text-\\[15px\\] { font-size: calc(15px * ${ratio}) !important; }
-        #chat-recent-container .text-\\[14px\\], #chat-contacts-container .text-\\[14px\\], #chat-groups-container .text-\\[14px\\] { font-size: calc(14px * ${ratio}) !important; }
-        #chat-recent-container .text-\\[13px\\], #chat-contacts-container .text-\\[13px\\], #chat-groups-container .text-\\[13px\\] { font-size: calc(13px * ${ratio}) !important; }
-        #chat-recent-container .text-\\[12px\\], #chat-contacts-container .text-\\[12px\\], #chat-groups-container .text-\\[12px\\] { font-size: calc(12px * ${ratio}) !important; }
-        #chat-recent-container .text-\\[11px\\], #chat-contacts-container .text-\\[11px\\], #chat-groups-container .text-\\[11px\\] { font-size: calc(11px * ${ratio}) !important; }
-        #chat-recent-container .text-\\[10px\\], #chat-contacts-container .text-\\[10px\\], #chat-groups-container .text-\\[10px\\] { font-size: calc(10px * ${ratio}) !important; }
     `;
     document.getElementById('dynamic-font-style').innerHTML = styleText;
 }
@@ -20145,8 +20149,7 @@ window.toggleKeepAlive = function(enable) {
     if (enable) {
         if (!window.keepAliveAudio) {
             // 使用网络 m4a 文件，手机系统更容易将其识别为媒体播放任务
-            // 找到这行旧代码：
-window.keepAliveAudio = new Audio('https://cdn.jsdelivr.net/gh/anars/blank-audio/1-minute-of-silence.mp3');
+            window.keepAliveAudio = new Audio('https://yinselis.github.io/ECHO/silence.mp3');
             window.keepAliveAudio.loop = true;
             window.keepAliveAudio.volume = 0.01;
             window.keepAliveAudio.preload = 'auto';
@@ -20157,8 +20160,9 @@ window.keepAliveAudio = new Audio('https://cdn.jsdelivr.net/gh/anars/blank-audio
                     title: 'ECHO',          // 通知栏显示的大标题（你的应用名）
                     artist: '信号维持中...',  // 通知栏显示的小标题
                     artwork: [
-
-                    ]
+    // 把链接换成你的专属头像
+    { src: 'https://yinselis.github.io/ECHO/icon.png', sizes: '96x96', type: 'image/png' }
+]
                 });
                 
                 // 必须绑定播放和暂停事件，手机系统才会认为这是一个真实的播放器并在状态栏显示
@@ -20531,58 +20535,6 @@ window.importAllData = async function(event) {
         event.target.value = '';
     }
 };
-
-// 1. 进来先雇佣邮差（注册 Service Worker）
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').then(function(reg) {
-        console.log('邮差雇佣成功！');
-    }).catch(function(err) {
-        console.log('邮差雇佣失败', err);
-    });
-}
-
-// 2. 真正发通知的核心函数（让邮差去发）
-window.sendSystemNotification = function(title, body) {
-    if (window.Notification && Notification.permission === "granted") {
-        if (navigator.serviceWorker) {
-            // 找后台邮差去发弹窗
-            navigator.serviceWorker.ready.then(function(registration) {
-                registration.showNotification(title, {
-                    body: body,
-                    icon: 'https://yinselis.github.io/ECHO/icon.png',
-                    vibrate: [200, 100, 200] // 让安卓手机震动一下！嗡-嗡！
-                });
-            }).catch(function() {
-                // 如果邮差罢工，退回网页内部弹窗
-                if (typeof window.showGlobalNotification === 'function') window.showGlobalNotification(title, body);
-            });
-        }
-    } else {
-        // 没给权限时，退回网页内部弹窗
-        if (typeof window.showGlobalNotification === 'function') {
-            window.showGlobalNotification(title, body);
-        }
-    }
-};
-
-// 3. 修改后的测试按钮逻辑
-window.testSysNotification = function() {
-    const status = Notification.permission;
-    alert("当前权限状态：" + status);
-
-    if (status === "granted") {
-        if (navigator.serviceWorker) {
-            navigator.serviceWorker.ready.then(function(registration) {
-                registration.showNotification("ECHO 测试", { 
-                    body: "太棒了！你成功雇佣了邮差，突破了安卓浏览器的限制！",
-                    icon: 'https://yinselis.github.io/ECHO/icon.png',
-                    vibrate: [200, 100, 200]
-                });
-                alert("已经让邮差去发通知了！看看顶部有没有震动并滑出横幅？");
-            });
-        }
-    }
-}
 </script>
 
 <!-- 多存档管理弹窗 -->
