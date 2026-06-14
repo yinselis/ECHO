@@ -20154,8 +20154,8 @@ window.toggleKeepAlive = function(enable) {
     if (enable) {
         if (!window.keepAliveAudio) {
             // 使用网络 m4a 文件，手机系统更容易将其识别为媒体播放任务
-            // 替换成这行新代码：
-window.keepAliveAudio = new Audio('data:audio/mp3;base64,//MkxAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq');
+            // 找到这行旧代码：
+window.keepAliveAudio = new Audio('https://cdn.jsdelivr.net/gh/anars/blank-audio/1-minute-of-silence.mp3');
             window.keepAliveAudio.loop = true;
             window.keepAliveAudio.volume = 0.01;
             window.keepAliveAudio.preload = 'auto';
