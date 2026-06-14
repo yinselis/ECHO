@@ -20136,7 +20136,7 @@ window.toggleKeepAlive = function(enable) {
     if (enable) {
         if (!window.keepAliveAudio) {
             // 使用网络 m4a 文件，手机系统更容易将其识别为媒体播放任务
-            window.keepAliveAudio = new Audio('https://img.heliar.top/file/1772885159972_silence.m4a');
+            window.keepAliveAudio = new Audio('https://img.heliar.top/file/1781434210247_1-second-of-silence.mp3');
             window.keepAliveAudio.loop = true;
             window.keepAliveAudio.volume = 0.01;
             window.keepAliveAudio.preload = 'auto';
@@ -20147,8 +20147,7 @@ window.toggleKeepAlive = function(enable) {
                     title: 'ECHO',          // 通知栏显示的大标题（你的应用名）
                     artist: '信号维持中...',  // 通知栏显示的小标题
                     artwork: [
-                        // 如果你有ECHO的LOGO链接，可以把下面的 URL 换成你的LOGO图片链接
-                        { src: 'https://img.heliar.top/file/1772885159972_silence.m4a', sizes: '96x96', type: 'image/png' }
+
                     ]
                 });
                 
