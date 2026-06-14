@@ -801,7 +801,12 @@ body, html {
                 </label>
                 <input type="checkbox" id="setting-keep-alive" class="w-5 h-5 accent-[var(--ink)] cursor-pointer" onchange="window.toggleKeepAlive(this.checked)">
             </div>
-            
+                        <!-- 【测试系统弹窗专用按钮】 -->
+            <div class="flex flex-col space-y-2 pt-6 border-t " style="border-color: var(--ink-light);">
+                <button class="sketch-box shape-2 px-4 py-3 font-bold w-full active:scale-95 transition-transform bg-white/80 border-solid text-sm text-green-700" style="border-width: 1px; border-color: var(--ink);" onclick="window.testSysNotification()">
+                    🔔 测试手机系统级别弹窗
+                </button>
+            </div>
                         <!-- 【新增：AI 主动发消息与拉黑验证机制】 -->
             <div class="flex items-center justify-between pt-4">
                 <label class="font-bold text-sm flex flex-col">
@@ -20541,6 +20546,39 @@ window.importAllData = async function(event) {
         event.target.value = '';
     }
 };
+
+window.testSysNotification = function() {
+    // 1. 检查浏览器是否根本没有这个功能（比如微信内置浏览器）
+    if (!("Notification" in window)) {
+        alert("惨了：你现在用的这个浏览器压根不支持网页弹窗功能！建议换系统自带的 Chrome 或 Safari。");
+        return;
+    }
+
+    // 2. 检查当前权限状态
+    const status = Notification.permission;
+    alert("当前系统通知权限状态是：" + status);
+
+    if (status === "granted") {
+        // 如果已经允许了，直接发一个试试
+        try {
+            new Notification("ECHO 系统测试", { body: "恭喜！系统弹窗功能完全正常！如果没看到，说明手机系统把浏览器的通知给拦截了。" });
+            alert("已发送弹窗！你有没有看到手机顶部弹出横幅？");
+        } catch(e) {
+            alert("发送失败，可能是本地 file:// 协议被浏览器限制了。报错：" + e.message);
+        }
+    } else if (status === "denied") {
+        // 如果被拒绝了
+        alert("权限状态是 denied (被拒绝)。由于浏览器的限制，它不会再弹框问你了，你必须去浏览器的设置-网站权限里手动清除记录！");
+    } else {
+        // 如果是 default，尝试强行唤起询问框
+        Notification.requestPermission().then(function (permission) {
+            alert("你刚才选择了：" + permission);
+            if (permission === "granted") {
+                new Notification("ECHO 系统测试", { body: "太棒了，成功激活！" });
+            }
+        });
+    }
+}
 </script>
 
 <!-- 多存档管理弹窗 -->
