@@ -10953,8 +10953,8 @@ else if (currentBubble.match(/\[发送语音[：:]\s*(\d+)s?\]/i)) {
     if (!currentBubble) currentBubble = '...';
 } 
 // 【新增】：检测是否戳一戳
-else if (currentBubble.match(/\[戳一戳[：:]\s*(.*?)\]/i)) {
-    const pokeMatch = currentBubble.match(/\[戳一戳[：:]\s*(.*?)\]/i);
+else if (currentBubble.match(/\[戳一戳[：:]\s*([\s\S]*?)\]/i)) {
+    const pokeMatch = currentBubble.match(/\[戳一戳[：:]\s*([\s\S]*?)\]/i);
     saveMsgType = 'poke';
     
     let actionText = pokeMatch[1].trim();
@@ -10995,7 +10995,7 @@ if (revokeMatch) {
 }
 
 // 【新增】：检测是否发送假图
-const fakeImgMatch = currentBubble.match(/\[发送(?:图片|假图)[：:]\s*(.*?)\]/i);
+const fakeImgMatch = currentBubble.match(/\[发送(?:图片|假图)[：:]\s*([\s\S]*?)\]/i);
 if (fakeImgMatch) {
     saveMsgType = 'fake_image';
     currentBubble = fakeImgMatch[1].trim();
@@ -14560,14 +14560,17 @@ if ('serviceWorker' in navigator) {
 }
 
 // 覆盖你原本的函数：发送手机系统级横幅通知（带专属头像版）
-window.sendSystemNotification = function(title, body) {
+// 【修改1：括号里加上 charId】
+window.sendSystemNotification = function(title, body, charId) {
     if (window.Notification && Notification.permission === "granted") {
         if (navigator.serviceWorker) {
             navigator.serviceWorker.ready.then(function(registration) {
                 registration.showNotification(title, {
                     body: body,
-                    icon: 'https://yinselis.github.io/ECHO/icon.png', // 👉 你的绝对路径头像
-                    vibrate: [200, 100, 200]
+                    icon: 'https://yinselis.github.io/ECHO/icon.png', 
+                    vibrate: [200, 100, 200],
+                    // 【修改2：把 ID 悄悄存进通知的数据里】
+                    data: { charId: charId, title: title } 
                 });
             }).catch(function() {
                 if (typeof window.showGlobalNotification === 'function') window.showGlobalNotification(title, body);
@@ -15193,14 +15196,6 @@ async function fetchSilentAIResponse(char, messages) {
     let sysPrompt = `You are a real human: ${char.name}. Forget you are an AI.
 [Your Profile]: ${char.prompt}`;
 
-    // 3. 心声引擎
-    if (enableInnerVoice) {
-        sysPrompt += `\n\n[System Observation Mode]: ON.
-At the VERY END of your entire response, you MUST attach your current hidden state using EXACTLY this format:
-[OBSERVATION: Your Mood/Emotion || Your Current Action || Your Outer Appearance/Clothing || Your Deepest Inner Thought]
-User's specific focus request: ${innerVoicePrompt ? innerVoicePrompt : 'Natural flow'}`;
-    }
-
     // 4. 玩家身份与关系
     if (!window.globalAvatarCache) window.globalAvatarCache = (await window.getFromDB('oc_phone_characters')) || [];
     const savedMeId = localStorage.getItem('oc_phone_chat_me_' + charId);
@@ -15331,63 +15326,117 @@ setInterval(async () => {
         // 【新增】：读取用户在设置里填写的自定义时间，如果没有填，默认就是 15 分钟
         let customWaitTime = parseInt(localStorage.getItem('oc_phone_ai_auto_time')) || 15;
 
-        // 1. 憋气时间：你离开超过【自定义的时间】，它才发现你不在了
-        if (minutesPassed >= customWaitTime && minutesPassed <= 720) {
-            
-            // 2. 冷却时间：发过一次消息后，乖乖等你，1小时内绝不再烦你
-            let lastActiveInitiate = parseInt(localStorage.getItem('oc_ai_last_active_time_' + charId)) || 0;
-            let cooldownMins = (Date.now() - lastActiveInitiate) / (1000 * 60);
-            if (cooldownMins < 60) continue; 
+        // 1. 憋气时间：你离开超过【自定义的时间】，它才发现你不在了 (改为 4320 分钟 = 3 天)
+if (minutesPassed >= customWaitTime && minutesPassed <= 4320) {
+    
+    // 2. 浮动冷却时间：读取 AI 上次抽取的随机冷却值 (25~60分钟)
+    let lastActiveInitiate = parseInt(localStorage.getItem('oc_ai_last_active_time_' + charId)) || 0;
+    let targetCooldown = parseInt(localStorage.getItem('oc_ai_cooldown_target_' + charId)) || 25; 
+    let cooldownMins = (Date.now() - lastActiveInitiate) / (1000 * 60);
+    
+    if (cooldownMins < targetCooldown) continue; 
 
-            // 3. 触发概率：每隔5分钟来看你一次，每次 30% 的概率忍不住发消息
-            if (Math.random() < 0.30) {
-                console.log(`[主动发信触发] 目标: ${charId}`);
-                
-                // 立刻记录这次触发的时间，锁死 30 分钟冷却
-                localStorage.setItem('oc_ai_last_active_time_' + charId, Date.now());
+    // 3. 触发概率：每次 30% 的概率忍不住发消息
+    if (Math.random() < 0.30) {
+        console.log(`[主动发信触发] 目标: ${charId}`);
+        
+        // 立刻记录这次触发的时间
+        localStorage.setItem('oc_ai_last_active_time_' + charId, Date.now());
+        // 生成下一次的浮动冷却时间：25分钟 到 60分钟之间随机
+        let nextCooldown = Math.floor(Math.random() * (60 - 25 + 1)) + 25;
+        localStorage.setItem('oc_ai_cooldown_target_' + charId, nextCooldown);
 
                 const char = chars.find(c => c.id === charId);
                 if (!char) continue;
 
                 // 呼叫大模型生成一条消息
-                const replyText = await fetchSilentAIResponse(char, msgs);
-                if (replyText) {
-                    let bubbles = replyText.split(/\[气泡\]/i).map(s => s.trim()).filter(s => s);
-                    if (bubbles.length === 0) bubbles.push(replyText);
+                let replyText = await fetchSilentAIResponse(char, msgs); // 修复1：把 const 改成 let 防止崩溃
+if (replyText) {
+    // 1. 提前剥离心声数据 [OBSERVATION]
+    let parsedObservation = null;
+    const obsMatch = replyText.match(/\[OBSERVATION:\s*([\s\S]*?)\]/i);
+    if (obsMatch) {
+        const parts = obsMatch[1].split('||').map(s => s.trim());
+        parsedObservation = {
+            mood: parts[0] || '未知',
+            action: parts[1] || '无明显动作',
+            details: parts[2] || '无特殊特征',
+            thought: parts[3] || '...'
+        };
+        replyText = replyText.replace(obsMatch[0], '').trim();
+    }
 
-                    // 防冲突：发送前再拉取一次最新记录，防止这段时间内你正好给他发了消息
-                    let freshMsgs = await window.getFromDB(chatKey) || [];
+    // 【新增修复】：如果笨笨大模型忘了写 [气泡] 标签但换行了，强行帮它切割，防止挤成一坨！
+    if (!replyText.includes('[气泡]') && replyText.includes('\n')) {
+        replyText = replyText.split('\n').filter(s => s.trim()).map(s => '[气泡]' + s.trim()).join('\n');
+    }
 
-                    // 将 AI 生成的话以气泡形式塞入数据库
-                    for (let i = 0; i < bubbles.length; i++) {
-                        freshMsgs.push({
-                            role: 'assistant',
-                            content: bubbles[i],
-                            msgType: 'text',
-                            timestamp: Date.now() + i
-                        });
-                    }
-                    await window.saveToDB(chatKey, freshMsgs);
+    // 2. 切割气泡
+    let bubbles = replyText.split(/\[气泡\]/i).map(s => s.trim()).filter(s => s);
+    if (bubbles.length === 0) bubbles.push(replyText);
+
+    let freshMsgs = await window.getFromDB(chatKey) || [];
+
+    // 3. 循环解析每一个气泡的特殊指令
+    for (let i = 0; i < bubbles.length; i++) {
+        let currentBubble = bubbles[i];
+        let saveMsgType = 'text';
+
+        // 拦截：戳一戳
+        const pokeMatch = currentBubble.match(/\[戳一戳[：:]\s*([\s\S]*?)\]/i);
+        if (pokeMatch) {
+            saveMsgType = 'poke';
+            let actionText = pokeMatch[1].trim();
+            if (actionText.startsWith('我')) actionText = actionText.substring(1).trim();
+            currentBubble = `${char.name} ${actionText}`;
+        }
+
+        // 拦截：发送图片/假图
+        const fakeImgMatch = currentBubble.match(/\[发送(?:图片|假图)[：:]\s*([\s\S]*?)\]/i);
+        if (fakeImgMatch) {
+            saveMsgType = 'fake_image';
+            currentBubble = fakeImgMatch[1].trim();
+        }
+
+        // 存入数据库
+        freshMsgs.push({
+            role: 'assistant',
+            content: currentBubble,
+            msgType: saveMsgType,
+            // 只有最后一条气泡附带心声，防止重复
+            observation: i === bubbles.length - 1 ? parsedObservation : null,
+            timestamp: Date.now() + i
+        });
+    }
+    await window.saveToDB(chatKey, freshMsgs);
 
                     // 👇=== 连环横幅弹窗魔法 ===👇
-                    const remarkName = localStorage.getItem('oc_phone_chat_remark_' + charId);
-                    const displayName = remarkName ? remarkName : char.name;
-                    
-                    for (let i = 0; i < bubbles.length; i++) {
-                        // 模拟打字延迟：从第二条消息开始，每条等 1.5 秒再弹横幅
-                        if (i > 0) {
-                            await new Promise(res => setTimeout(res, 1500));
-                        }
-                        
-                        if (typeof window.sendSystemNotification === 'function') {
-                            window.sendSystemNotification(displayName, bubbles[i]);
-                        } else if (typeof window.showGlobalNotification === 'function') {
-                            window.showGlobalNotification(displayName, bubbles[i]);
-                        } else if (typeof window.showToast === 'function') {
-                            window.showToast(`[新消息] ${displayName}: ${bubbles[i].substring(0, 10)}...`);
-                        }
-                    }
-                    // 👆========================👆
+const remarkName = localStorage.getItem('oc_phone_chat_remark_' + charId);
+const displayName = remarkName ? remarkName : char.name;
+
+for (let i = 0; i < bubbles.length; i++) {
+    if (i > 0) {
+        await new Promise(res => setTimeout(res, 1500));
+    }
+    
+    // 【新增】：专供横幅显示的文本清洗器！
+    let notifyText = bubbles[i];
+    // 1. 无情抹除所有 [译: xxx] 翻译标签，只留纯正英文
+    notifyText = notifyText.replace(/\[(?:译|翻译|EN|En|Eng)[:：]\s*([\s\S]*?)\]/gi, '').trim();
+    // 2. 像微信一样，把表情和图片代码变成友好的提示
+    notifyText = notifyText.replace(/\[表情包[:：](.*?)\]/gi, '[动画表情]');
+    notifyText = notifyText.replace(/\[发送(?:图片|假图)[:：]\s*(.*?)\]/gi, '[图片]');
+    notifyText = notifyText.replace(/\[戳一戳[:：]\s*(.*?)\]/gi, '[戳了戳你]');
+    
+    if (typeof window.sendSystemNotification === 'function') {
+        window.sendSystemNotification(displayName, notifyText, charId);
+    } else if (typeof window.showGlobalNotification === 'function') {
+        window.showGlobalNotification(displayName, notifyText);
+    } else if (typeof window.showToast === 'function') {
+        window.showToast(`[新消息] ${displayName}: ${notifyText.substring(0, 10)}...`);
+    }
+}
+// 👆========================👆
 
                     // 如果此时你正好在看聊天列表或者开着聊天室，偷偷无感刷新屏幕气泡
                     if (typeof renderChatRecent === 'function') renderChatRecent();
@@ -15420,6 +15469,32 @@ window.testSysNotification = function() {
         }
     }
 }
+
+// ================= 新增：监听点击系统通知，自动跳转聊天室 =================
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', function(event) {
+        // 如果是处于后台被唤醒
+        if (event.data && event.data.type === 'JUMP_TO_CHAT') {
+            if (typeof openChatRoom === 'function') {
+                openChatRoom(event.data.charId, event.data.charName);
+            }
+        }
+    });
+}
+
+// 监听冷启动（如果你把网页后台彻底杀了，点通知会以带参数的新网页打开）
+document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const jumpId = params.get('chatId');
+    const jumpName = params.get('charName');
+    if (jumpId && jumpName) {
+        setTimeout(() => {
+            if (typeof openChatRoom === 'function') {
+                openChatRoom(jumpId, decodeURIComponent(jumpName));
+            }
+        }, 800); // 稍微等0.8秒数据库加载完，瞬间弹进聊天室
+    }
+});
 </script>    
     <script>
 /* --- app_group_chat.js --- */
