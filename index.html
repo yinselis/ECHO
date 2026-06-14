@@ -20549,7 +20549,7 @@ window.sendSystemNotification = function(title, body) {
             navigator.serviceWorker.ready.then(function(registration) {
                 registration.showNotification(title, {
                     body: body,
-                    icon: 'icon.png', // 如果你有图标会显示在这里
+                    icon: 'https://yinselis.github.io/ECHO/icon.png',
                     vibrate: [200, 100, 200] // 让安卓手机震动一下！嗡-嗡！
                 });
             }).catch(function() {
