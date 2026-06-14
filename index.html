@@ -15331,24 +15331,20 @@ setInterval(async () => {
         // 【新增】：读取用户在设置里填写的自定义时间，如果没有填，默认就是 15 分钟
         let customWaitTime = parseInt(localStorage.getItem('oc_phone_ai_auto_time')) || 15;
 
-// 1. 憋气时间：你离开超过【自定义的时间】，它才发现你不在了 (改为 4320 分钟 = 3 天)
-if (minutesPassed >= customWaitTime && minutesPassed <= 4320) {
-    
-    // 【测试专用】：把冷却拦截强行废掉，不准卡我！
-    // let lastActiveInitiate = ...
-    // let targetCooldown = ...
-    // let cooldownMins = ...
-    // if (cooldownMins < targetCooldown) continue; 
+        // 1. 憋气时间：你离开超过【自定义的时间】，它才发现你不在了
+        if (minutesPassed >= customWaitTime && minutesPassed <= 720) {
+            
+            // 2. 冷却时间：发过一次消息后，乖乖等你，1小时内绝不再烦你
+            let lastActiveInitiate = parseInt(localStorage.getItem('oc_ai_last_active_time_' + charId)) || 0;
+            let cooldownMins = (Date.now() - lastActiveInitiate) / (1000 * 60);
+            if (cooldownMins < 60) continue; 
 
-    // 3. 触发概率：【测试专用】 100% 必发！
-    if (Math.random() < 1.0) {
-        console.log(`[主动发信触发] 目标: ${charId}`);
-        
-        // 立刻记录这次触发的时间
-        localStorage.setItem('oc_ai_last_active_time_' + charId, Date.now());
-        // 生成下一次的浮动冷却时间 (10~30分钟)
-        let nextCooldown = Math.floor(Math.random() * (30 - 10 + 1)) + 10;
-        localStorage.setItem('oc_ai_cooldown_target_' + charId, nextCooldown);
+            // 3. 触发概率：每隔5分钟来看你一次，每次 30% 的概率忍不住发消息
+            if (Math.random() < 0.30) {
+                console.log(`[主动发信触发] 目标: ${charId}`);
+                
+                // 立刻记录这次触发的时间，锁死 30 分钟冷却
+                localStorage.setItem('oc_ai_last_active_time_' + charId, Date.now());
 
                 const char = chars.find(c => c.id === charId);
                 if (!char) continue;
