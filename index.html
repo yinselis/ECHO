@@ -20575,6 +20575,7 @@ window.testSysNotification = function() {
             navigator.serviceWorker.ready.then(function(registration) {
                 registration.showNotification("ECHO 测试", { 
                     body: "太棒了！你成功雇佣了邮差，突破了安卓浏览器的限制！",
+                    icon: 'https://yinselis.github.io/ECHO/icon.png',
                     vibrate: [200, 100, 200]
                 });
                 alert("已经让邮差去发通知了！看看顶部有没有震动并滑出横幅？");
