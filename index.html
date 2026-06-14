@@ -14494,29 +14494,7 @@ document.addEventListener('click', function requestNotify() {
     document.removeEventListener('click', requestNotify);
 }, { once: true });
 
-// 覆盖你原本的函数：发送手机系统级横幅通知
-window.sendSystemNotification = function(title, body) {
-    // 如果用户给了权限，走真正的系统状态栏横幅！
-    if (window.Notification && Notification.permission === "granted") {
-        var notif = new Notification(title, {
-            body: body,
-            icon: 'icon.png' // 如果你没有图标，这行留着也不会报错
-        });
-        
-        // 点击手机顶部的横幅时，自动把网页从后台拉回前台！
-        notif.onclick = function() {
-            window.focus();
-            this.close();
-        };
-    } else {
-        // 如果用户没给系统通知权限，或者 iOS 各种恶心限制，兜底退回网页内的 UI 弹窗
-        if (typeof window.showGlobalNotification === 'function') {
-            window.showGlobalNotification(title, body);
-        } else if (typeof window.showToast === 'function') {
-            window.showToast("新消息: " + title);
-        }
-    }
-};
+
 
 window.blockChatContact = function() {
     if (!currentChatId) return;
@@ -15168,6 +15146,13 @@ You and the user haven't talked for a while.`;
         
         apiMessages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: timePrefix + content });
     });
+
+// ================= 【新增：防复读机强力补丁】 =================
+apiMessages.push({ 
+    role: 'user', 
+    content: `[系统强制指令：距离上次聊天已经过去了一段时间。现在真实时间是 ${currentTimeStr}。请你根据现在的时间、你的设定以及你现在可能在做的事情，主动发一条新消息找我。绝对不要重复你之前说过的话。]` 
+});
+// ========================================================
 
     try {
         const response = await fetch(`${apiUrl}/v1/chat/completions`, {
@@ -20547,36 +20532,54 @@ window.importAllData = async function(event) {
     }
 };
 
-window.testSysNotification = function() {
-    // 1. 检查浏览器是否根本没有这个功能（比如微信内置浏览器）
-    if (!("Notification" in window)) {
-        alert("惨了：你现在用的这个浏览器压根不支持网页弹窗功能！建议换系统自带的 Chrome 或 Safari。");
-        return;
-    }
+// 1. 进来先雇佣邮差（注册 Service Worker）
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').then(function(reg) {
+        console.log('邮差雇佣成功！');
+    }).catch(function(err) {
+        console.log('邮差雇佣失败', err);
+    });
+}
 
-    // 2. 检查当前权限状态
+// 2. 真正发通知的核心函数（让邮差去发）
+window.sendSystemNotification = function(title, body) {
+    if (window.Notification && Notification.permission === "granted") {
+        if (navigator.serviceWorker) {
+            // 找后台邮差去发弹窗
+            navigator.serviceWorker.ready.then(function(registration) {
+                registration.showNotification(title, {
+                    body: body,
+                    icon: 'icon.png', // 如果你有图标会显示在这里
+                    vibrate: [200, 100, 200] // 让安卓手机震动一下！嗡-嗡！
+                });
+            }).catch(function() {
+                // 如果邮差罢工，退回网页内部弹窗
+                if (typeof window.showGlobalNotification === 'function') window.showGlobalNotification(title, body);
+            });
+        }
+    } else {
+        // 没给权限时，退回网页内部弹窗
+        if (typeof window.showGlobalNotification === 'function') {
+            window.showGlobalNotification(title, body);
+        }
+    }
+};
+
+// 3. 修改后的测试按钮逻辑
+window.testSysNotification = function() {
     const status = Notification.permission;
-    alert("当前系统通知权限状态是：" + status);
+    alert("当前权限状态：" + status);
 
     if (status === "granted") {
-        // 如果已经允许了，直接发一个试试
-        try {
-            new Notification("ECHO 系统测试", { body: "恭喜！系统弹窗功能完全正常！如果没看到，说明手机系统把浏览器的通知给拦截了。" });
-            alert("已发送弹窗！你有没有看到手机顶部弹出横幅？");
-        } catch(e) {
-            alert("发送失败，可能是本地 file:// 协议被浏览器限制了。报错：" + e.message);
+        if (navigator.serviceWorker) {
+            navigator.serviceWorker.ready.then(function(registration) {
+                registration.showNotification("ECHO 测试", { 
+                    body: "太棒了！你成功雇佣了邮差，突破了安卓浏览器的限制！",
+                    vibrate: [200, 100, 200]
+                });
+                alert("已经让邮差去发通知了！看看顶部有没有震动并滑出横幅？");
+            });
         }
-    } else if (status === "denied") {
-        // 如果被拒绝了
-        alert("权限状态是 denied (被拒绝)。由于浏览器的限制，它不会再弹框问你了，你必须去浏览器的设置-网站权限里手动清除记录！");
-    } else {
-        // 如果是 default，尝试强行唤起询问框
-        Notification.requestPermission().then(function (permission) {
-            alert("你刚才选择了：" + permission);
-            if (permission === "granted") {
-                new Notification("ECHO 系统测试", { body: "太棒了，成功激活！" });
-            }
-        });
     }
 }
 </script>
