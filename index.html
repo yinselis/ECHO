@@ -3102,7 +3102,7 @@ body, html {
                 </button>
                 
                 <!-- 文本输入框 -->
-                <textarea id="chat-input-text" class="flex-1 h-[42px] max-h-28 py-[10px] px-3 bg-black/5 outline-none text-[0.9375rem] custom-scrollbar resize-none transition-colors focus:bg-black/10" style="border-radius: 21px; line-height: 1.4; color: var(--ink);" placeholder="发送消息..."></textarea>
+                <textarea id="chat-input-text" class="flex-1 h-[42px] max-h-28 py-[10px] px-3 bg-black/5 outline-none text-sm custom-scrollbar resize-none transition-colors focus:bg-black/10" style="border-radius: 21px; line-height: 1.4; color: var(--ink);" placeholder="发送消息..."></textarea>
                 
 <!-- 接收键：无边框轻量设计 -->
 <button id="btn-chat-receive" class="w-[42px] h-[42px] flex items-center justify-center active:scale-90 transition-transform shrink-0 bg-black/5" style="color: var(--ink); border-radius: 21px;" onclick="receiveChatMessage()">
@@ -9756,9 +9756,9 @@ myContacts.forEach((char, index) => {
     htmlContent += `
         <div class="w-[31%] cursor-pointer active:scale-95 transition-all group" style="transform: rotate(${rot}deg);" onclick="openChatRoom('${char.id}', '${displayName}')">
             <div class="p-1.5 bg-white flex flex-col items-center shadow-md relative group-hover:shadow-lg transition-shadow" style="border: 1px solid var(--ink-light); border-radius: 4px;">
-                <div class="absolute top-[-6px] left-1/2 -translate-x-1/2 w-5 h-2 bg-white/60 border border-[var(--ink-light)] opacity-70 z-20 shadow-sm backdrop-blur-sm" style="transform: translateX(-50%) rotate(${-rot}deg);"></div>
+                <div class="absolute top-[-6px] left-1/2 -translate-x-1/2 w-5 h-2 bg-white/60 border border-[var(--ink-light)] opacity-70 z-20 shadow-sm " style="transform: translateX(-50%) rotate(${-rot}deg);"></div>
                 <div class="w-full aspect-square mb-1.5 overflow-hidden border bg-black/5 rounded-[2px]" style="border-color: var(--ink-light);">
-                    <div class="w-full h-full mix-blend-multiply opacity-90">${avatarHtml}</div>
+                    <div class="w-full h-full  opacity-90">${avatarHtml}</div>
                 </div>
                 <div class="w-full text-center pb-0.5">
                     <div class="font-bold text-[11px] truncate tracking-wide" style="color: var(--ink);">${displayName}</div>
@@ -9769,7 +9769,7 @@ myContacts.forEach((char, index) => {
         // ================= 新增：悬浮极简 (Minimal) 风格 =================
         else if (style === 'minimal') {
             htmlContent += `
-                <div class="p-4 mb-3 mx-4 flex items-center cursor-pointer active:scale-95 transition-all rounded-[24px] bg-white/90 backdrop-blur-md shadow-[0_8px_20px_rgba(0,0,0,0.03)] border border-white relative overflow-hidden" onclick="openChatRoom('${char.id}', '${char.name}')">
+                <div class="p-4 mb-3 mx-4 flex items-center cursor-pointer active:scale-95 transition-all rounded-[24px] bg-white/90  shadow-[0_8px_20px_rgba(0,0,0,0.03)] border border-white relative overflow-hidden" onclick="openChatRoom('${char.id}', '${char.name}')">
                     <div class="rounded-full overflow-hidden shrink-0 relative bg-black/5 shadow-inner p-[2px]" style="border: 1px solid var(--ink-light); width: 3.25rem; height: 3.25rem;">
                         <div class="w-full h-full rounded-full overflow-hidden">${avatarHtml}</div>
                     </div>
@@ -9783,7 +9783,7 @@ myContacts.forEach((char, index) => {
         // 原本的悬浮玻璃 (Glass) 风格保留
         else {
             htmlContent += `
-                <div class="p-3 mb-3 mx-4 flex items-center cursor-pointer active:scale-95 transition-all rounded-[1rem] bg-black/5 backdrop-blur-md relative overflow-hidden" onclick="openChatRoom('${char.id}', '${char.name}')">
+                <div class="p-3 mb-3 mx-4 flex items-center cursor-pointer active:scale-95 transition-all rounded-[1rem] bg-black/5  relative overflow-hidden" onclick="openChatRoom('${char.id}', '${char.name}')">
                     <div class="absolute inset-0 bg-gradient-to-r from-white/30 to-transparent pointer-events-none"></div>
                     <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4 bg-white/50 overflow-hidden shrink-0 z-10 border" style="border-color: var(--ink-light);">
                         ${avatarHtml}
@@ -9805,7 +9805,7 @@ myContacts.forEach((char, index) => {
     if (style === 'minimal') {
         htmlContent += `
             <div class="h-28 w-full shrink-0 pointer-events-none"></div>
-            <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-white/95 backdrop-blur-xl rounded-[30px] shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-white px-8 py-3.5 flex items-center justify-between space-x-16 w-fit pointer-events-auto">
+            <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-white/95  rounded-[30px] shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-white px-8 py-3.5 flex items-center justify-between space-x-16 w-fit pointer-events-auto">
                 <div onclick="switchChatTab('tab-chat-recent')" class="flex flex-col items-center justify-center opacity-30 hover:opacity-100 cursor-pointer active:scale-90 transition-all">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                 </div>
@@ -9963,7 +9963,7 @@ let safePreviewContent = lastMsg.content || '';
                     <div class="p-1.5 bg-white flex flex-col items-center shadow-md relative group-hover:shadow-lg transition-shadow" style="border: 1px solid var(--ink-light); border-radius: 4px;">
                         <div class="w-full aspect-square mb-1.5 overflow-hidden border bg-black/5 relative rounded-[2px]" style="border-color: var(--ink-light);">
     ${scrapUnread}
-    <div class="w-full h-full mix-blend-multiply opacity-90">${avatarHtml}</div>
+    <div class="w-full h-full  opacity-90">${avatarHtml}</div>
                         </div>
                         <div class="w-full text-center pb-0.5">
                             <div class="font-bold text-[11px] truncate tracking-wide" style="color: var(--ink);">${displayName}</div>
@@ -9974,7 +9974,7 @@ let safePreviewContent = lastMsg.content || '';
         }
         else if (style === 'minimal') {
             htmlContent += `
-                <div class="p-4 mb-4 mx-4 flex items-center cursor-pointer active:scale-95 transition-all rounded-[24px] bg-white/90 backdrop-blur-md shadow-[0_8px_20px_rgba(0,0,0,0.03)] border border-white relative overflow-hidden" onclick="${onclickStr}">
+                <div class="p-4 mb-4 mx-4 flex items-center cursor-pointer active:scale-95 transition-all rounded-[24px] bg-white/90  shadow-[0_8px_20px_rgba(0,0,0,0.03)] border border-white relative overflow-hidden" onclick="${onclickStr}">
                     <div class="rounded-full overflow-hidden shrink-0 relative bg-black/5 shadow-inner p-[2px]" style="border: 1px solid var(--ink-light); width: 3.25rem; height: 3.25rem;">
                         <div class="w-full h-full rounded-full overflow-hidden">${avatarHtml}</div>
                     </div>
@@ -9989,7 +9989,7 @@ let safePreviewContent = lastMsg.content || '';
         }
         else {
             htmlContent += `
-                <div class="p-3 mb-3 mx-4 flex items-center cursor-pointer active:scale-95 transition-all rounded-[1rem] bg-black/5 backdrop-blur-md relative overflow-hidden" onclick="${onclickStr}">
+                <div class="p-3 mb-3 mx-4 flex items-center cursor-pointer active:scale-95 transition-all rounded-[1rem] bg-black/5  relative overflow-hidden" onclick="${onclickStr}">
                     <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4 bg-white/50 overflow-hidden shrink-0 z-10 border" style="border-color: var(--ink-light);">
                         ${avatarHtml}
                     </div>
@@ -10010,7 +10010,7 @@ let safePreviewContent = lastMsg.content || '';
     if (style === 'minimal') {
         htmlContent += `
             <div class="h-28 w-full shrink-0 pointer-events-none"></div>
-            <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-white/95 backdrop-blur-xl rounded-[30px] shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-white px-8 py-3.5 flex items-center justify-between space-x-16 w-fit pointer-events-auto">
+            <div class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-white/95  rounded-[30px] shadow-[0_15px_35px_rgba(0,0,0,0.08)] border border-white px-8 py-3.5 flex items-center justify-between space-x-16 w-fit pointer-events-auto">
                 <div onclick="switchChatTab('tab-chat-recent')" class="flex flex-col items-center justify-center opacity-100 cursor-pointer active:scale-90 transition-all relative">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                     <div class="absolute -bottom-[6px] left-1/2 -translate-x-1/2 w-[5px] h-[5px] rounded-full bg-[var(--ink)]"></div>
@@ -10035,7 +10035,7 @@ window.showToast = function(msg) {
     if (!toast) {
         toast = document.createElement('div');
         toast.id = 'global-toast';
-        toast.className = 'fixed top-14 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 text-[13px] font-bold tracking-widest transition-all duration-400 opacity-0 pointer-events-none whitespace-nowrap shadow-xl backdrop-blur-md';
+        toast.className = 'fixed top-14 left-1/2 -translate-x-1/2 z-[9999] px-6 py-3 text-[13px] font-bold tracking-widest transition-all duration-400 opacity-0 pointer-events-none whitespace-nowrap shadow-xl ';
         toast.style.backgroundColor = 'var(--ink)';
         toast.style.color = 'var(--bg-paper)';
         toast.style.borderRadius = '30px';
@@ -10092,7 +10092,7 @@ async function renderAddContactList() {
             renderChatContacts();
         };
 
-        const avatarHtml = char.avatar ? `<img src="${char.avatar}" class="w-full h-full object-cover mix-blend-multiply">` : `<span class="text-lg font-bold opacity-50" style="color: var(--ink);">${char.name.substring(0,1)}</span>`;
+        const avatarHtml = char.avatar ? `<img src="${char.avatar}" class="w-full h-full object-cover ">` : `<span class="text-lg font-bold opacity-50" style="color: var(--ink);">${char.name.substring(0,1)}</span>`;
 
         el.innerHTML = `
             <div class="absolute inset-0 pointer-events-none" style="background-color: var(--ink); opacity: 0.03;"></div>
@@ -10157,7 +10157,7 @@ async function renderAddContactList() {
 
     unadded.forEach(char => {
         const el = document.createElement('div');
-        el.className = 'flex items-center p-3.5 mb-3 rounded-[20px] cursor-pointer active:scale-95 transition-all mx-4 bg-white/80 backdrop-blur-md shadow-sm border border-white relative';
+        el.className = 'flex items-center p-3.5 mb-3 rounded-[20px] cursor-pointer active:scale-95 transition-all mx-4 bg-white/80  shadow-sm border border-white relative';
 
 el.onclick = async () => {
     contactsIds.push(char.id);
@@ -11149,17 +11149,17 @@ window.toggleChatDecorStyle = function() {
     img3.className = 'hidden';
 
     if (nextStyle === 1) { 
-        box.classList.add('flex-row', 'items-center', 'rounded-[4px]', 'backdrop-blur-md');
+        box.classList.add('flex-row', 'items-center', 'rounded-[4px]', '');
         img1.classList.add('w-20', 'h-20', 'rounded-[12px]');
         text.className = 'flex-1 ml-4 text-left flex flex-col justify-center relative z-40 overflow-hidden transition-all duration-500';
     } 
     else if (nextStyle === 2) { 
-        box.classList.add('flex-col', 'items-center', 'rounded-[8px]', 'backdrop-blur-md', 'p-4');
+        box.classList.add('flex-col', 'items-center', 'rounded-[8px]', '', 'p-4');
         img1.classList.add('w-full', 'h-36', 'rounded-[4px]', 'mb-4');
         text.className = 'w-full text-center flex flex-col items-center relative z-40 overflow-hidden transition-all duration-500';
     } 
     else if (nextStyle === 3) { 
-        box.classList.add('flex-row', 'items-center', 'rounded-[40px]', 'backdrop-blur-md', 'pr-6');
+        box.classList.add('flex-row', 'items-center', 'rounded-[40px]', '', 'pr-6');
         img1.classList.add('w-20', 'h-20', 'rounded-full');
         text.className = 'flex-1 ml-4 text-right flex flex-col items-end relative z-40 overflow-hidden transition-all duration-500';
     }
@@ -11632,7 +11632,7 @@ if (msg.msgType === 'revoke' && msg.revokedContent) {
     else if (msg.msgType === 'block_verify') {
         let safeContent = (msg.content || '对方尝试向你发送消息...').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         sysEl.innerHTML = `
-        <div ${sysTouchAttr} onclick="window.handleBubbleClick(event, ${absoluteIndex})" class="flex flex-col items-center justify-center p-4 bg-white/80 backdrop-blur-md rounded-[16px] shadow-sm w-[85%] max-w-[280px] relative border" style="border-color: var(--ink-light);">
+        <div ${sysTouchAttr} onclick="window.handleBubbleClick(event, ${absoluteIndex})" class="flex flex-col items-center justify-center p-4 bg-white/80  rounded-[16px] shadow-sm w-[85%] max-w-[280px] relative border" style="border-color: var(--ink-light);">
             <div class="absolute top-[-10px] bg-[var(--ink)] text-[var(--bg-paper)] px-3 py-0.5 text-[9px] font-bold rounded-full tracking-widest shadow-sm">
                 拦 截 系 统
             </div>
@@ -11809,7 +11809,7 @@ displayContent = `
 else if (msg.msgType === 'survey_reply') {
     let safeContent = encodeURIComponent(msg.content || '');
     displayContent = `
-        <div class="flex flex-col w-[220px] bg-white/90 backdrop-blur-md p-3.5 relative cursor-pointer shadow-[0_4px_20px_rgba(0,0,0,0.04)] active:scale-95 transition-transform" style="border: 1px solid var(--ink-light); border-radius: 16px;" onclick="window.showSurveyReplyDetail('${safeContent}')">
+        <div class="flex flex-col w-[220px] bg-white/90  p-3.5 relative cursor-pointer shadow-[0_4px_20px_rgba(0,0,0,0.04)] active:scale-95 transition-transform" style="border: 1px solid var(--ink-light); border-radius: 16px;" onclick="window.showSurveyReplyDetail('${safeContent}')">
             
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center space-x-1.5">
@@ -11843,7 +11843,7 @@ else if (msg.msgType === 'survey') {
     let question = (parts[1] || '').trim().replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
     
     displayContent = `
-        <div class="flex flex-col w-[220px] bg-white/90 backdrop-blur-md p-3.5 relative shadow-[0_4px_20px_rgba(0,0,0,0.04)]" style="border: 1px solid var(--ink-light); border-radius: 16px;">
+        <div class="flex flex-col w-[220px] bg-white/90  p-3.5 relative shadow-[0_4px_20px_rgba(0,0,0,0.04)]" style="border: 1px solid var(--ink-light); border-radius: 16px;">
             
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center space-x-1.5">
@@ -11876,12 +11876,12 @@ else if (msg.msgType === 'capsule_forward') {
     const tc = data.timeCalc || { text: '', days: '0', unit: '天' };
     
     const bgHtml = data.bg ? 
-        `<img src="${data.bg}" class="absolute inset-0 w-full h-full object-cover mix-blend-multiply opacity-80">` : 
+        `<img src="${data.bg}" class="absolute inset-0 w-full h-full object-cover  opacity-80">` : 
         `<div class="absolute inset-0 w-full h-full bg-black/10"></div>`;
         
     displayContent = `
         <div class="flex flex-col w-[180px] relative p-1 cursor-pointer active:scale-95 transition-transform sketch-box shape-2 bg-[#fdfcf9] shadow-[2px_4px_12px_rgba(0,0,0,0.06)]" style="border: 1px solid var(--ink-light); transform: rotate(1deg);">
-            <div class="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-4 bg-white/60 shadow-sm z-10 backdrop-blur-md transform -rotate-3" style="clip-path: polygon(5% 0, 95% 5%, 100% 90%, 0 100%);"></div>
+            <div class="absolute -top-2 left-1/2 -translate-x-1/2 w-10 h-4 bg-white/60 shadow-sm z-10  transform -rotate-3" style="clip-path: polygon(5% 0, 95% 5%, 100% 90%, 0 100%);"></div>
             <div class="relative w-full h-24 rounded-[12px] overflow-hidden border border-black/5 bg-gray-300">
                 ${bgHtml}
                 <div class="absolute inset-0 bg-gradient-to-b from-black/10 via-black/30 to-black/70 z-10 pointer-events-none"></div>
@@ -11909,7 +11909,7 @@ else if (msg.msgType === 'wall_forward') {
         <div class="flex flex-col w-[210px] bg-[#fdfbf7] shadow-[2px_4px_12px_rgba(0,0,0,0.06)] relative p-4 cursor-pointer active:scale-95 transition-transform sketch-box shape-2" style="border: 1px solid var(--ink-light); transform: rotate(-1.5deg);">
             
             <!-- 顶部的和纸胶带 -->
-            <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-12 h-5 bg-white/60 backdrop-blur-md shadow-sm transform rotate-2" style="clip-path: polygon(5% 0, 95% 5%, 100% 90%, 0 100%);"></div>
+            <div class="absolute -top-3 left-1/2 -translate-x-1/2 w-12 h-5 bg-white/60  shadow-sm transform rotate-2" style="clip-path: polygon(5% 0, 95% 5%, 100% 90%, 0 100%);"></div>
             
             <div class="flex justify-between items-center mb-3 border-b border-dashed pb-1" style="border-color: var(--ink-light);">
                 <span class="text-[9px] font-bold tracking-widest opacity-50 uppercase" style="color: var(--ink);">Wall Note</span>
@@ -12000,7 +12000,7 @@ if (msg.quote) {
     
     // 【专属设计的机密卷宗UI卡片】
     displayContent = `
-        <div class="flex flex-col w-[210px] bg-white/90 backdrop-blur-md p-3 relative cursor-pointer active:scale-95 transition-transform sketch-box shape-2" 
+        <div class="flex flex-col w-[210px] bg-white/90  p-3 relative cursor-pointer active:scale-95 transition-transform sketch-box shape-2" 
              style="border: 1px solid var(--ink); box-shadow: 3px 3px 0px rgba(0,0,0,0.1);" 
              id="btn-forward-detail-${absoluteIndex}" data-items="${safeItems}" 
              onclick="window.showForwardDetail(${absoluteIndex})">
@@ -12067,18 +12067,18 @@ if (msg.quote) {
 
 } else if (isRedpacket) {
     // 【红包样式大优化】：收窄边距，改成半透明磨砂白底，脱离气泡颜色
-    myBubbleClass = `msg-type-redpacket px-3 py-2 relative shadow-sm flex items-center w-fit border bg-white/90 backdrop-blur-md`;
+    myBubbleClass = `msg-type-redpacket px-3 py-2 relative shadow-sm flex items-center w-fit border bg-white/90 `;
     myBubbleStyle = `border-radius: 22px 22px 10px 22px; border-color: var(--ink-light);`;
-    taBubbleClass = `msg-type-redpacket px-3 py-2 relative shadow-sm flex items-center w-fit border bg-white/90 backdrop-blur-md`;
+    taBubbleClass = `msg-type-redpacket px-3 py-2 relative shadow-sm flex items-center w-fit border bg-white/90 `;
     taBubbleStyle = `border-radius: 22px 22px 22px 10px; border-color: var(--ink-light);`;
 
 } else {
     // 我方（右侧）：头像在右下角，所以把【右下角】改成 4px，其他角 22px
-    myBubbleClass = `msg-type-text px-[15px] py-[10px] text-[0.9375rem] relative shadow-[0_2px_6px_rgba(0,0,0,0.05)] break-words whitespace-pre-wrap leading-snug w-fit h-fit text-left`;
+    myBubbleClass = `msg-type-text px-[15px] py-[10px] text-sm relative shadow-[0_2px_6px_rgba(0,0,0,0.05)] break-words whitespace-pre-wrap leading-snug w-fit h-fit text-left`;
     myBubbleStyle = `background: ${bubbleColor}; color: ${bubbleTextColor}; border-radius: 22px 22px 4px 22px; border: none;`; 
     
     // 对方（左侧）：头像在左下角，所以把【左下角】改成 4px，其他角 22px
-    taBubbleClass = `msg-type-text px-[15px] py-[10px] text-[0.9375rem] relative shadow-[0_2px_6px_rgba(0,0,0,0.05)] break-words whitespace-pre-wrap leading-snug w-fit h-fit text-left`;
+    taBubbleClass = `msg-type-text px-[15px] py-[10px] text-sm relative shadow-[0_2px_6px_rgba(0,0,0,0.05)] break-words whitespace-pre-wrap leading-snug w-fit h-fit text-left`;
     taBubbleStyle = `background-color: white; color: var(--ink); border-radius: 22px 22px 22px 4px; border: none;`; 
 }
 
@@ -12103,7 +12103,7 @@ if (msg.quote) {
         let innerTimeHtml = '';
         if (timePos === 'in' && !isVoice && !isRedpacket) {
             if (isPureImage) {
-                innerTimeHtml = `<span class="absolute bottom-1 right-1 text-[9px] text-white bg-black/40 px-1.5 py-0.5 rounded font-mono shadow-sm backdrop-blur-sm leading-none">${timeStr}</span>`;
+                innerTimeHtml = `<span class="absolute bottom-1 right-1 text-[9px] text-white bg-black/40 px-1.5 py-0.5 rounded font-mono shadow-sm  leading-none">${timeStr}</span>`;
             } else {
                 innerTimeHtml = `<span class="inline-block text-[10px] opacity-50 ml-3 align-bottom mb-[1px] leading-none">${timeStr}</span>`;
             }
@@ -12117,7 +12117,7 @@ let voiceTextContent = (msg.content || "").trim();
 voiceTextContent = voiceTextContent.replace(/\[(?:译|翻译|EN|En|Eng)[:：]\s*([\s\S]*?)\]/gi, '<div class="mt-1 pt-1 border-t border-[var(--ink-light)] opacity-70 text-[11px]">$1</div>');
 
 const transBubbleHtml = isVoice 
-    ? `<div id="${voiceId}" class="hidden mt-2 px-3 py-1.5 bg-white/70 backdrop-blur-md rounded-[12px] text-[13px] leading-relaxed text-[var(--ink)] shadow-sm border border-[var(--ink-light)] w-max max-w-full self-${isMe ? 'end' : 'start'} text-left break-words"><span class="opacity-90 whitespace-pre-wrap">${voiceTextContent}</span></div>` 
+    ? `<div id="${voiceId}" class="hidden mt-2 px-3 py-1.5 bg-white/70  rounded-[12px] text-[13px] leading-relaxed text-[var(--ink)] shadow-sm border border-[var(--ink-light)] w-max max-w-full self-${isMe ? 'end' : 'start'} text-left break-words"><span class="opacity-90 whitespace-pre-wrap">${voiceTextContent}</span></div>` 
     : '';
 
         // ================= 组装最终 HTML =================
@@ -12548,7 +12548,7 @@ window.openRedPacket = async function(msgIndex, isMe, avatarHtml, senderName, my
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'rp-popup-modal';
-        modal.className = 'fixed inset-0 z-[300] flex items-center justify-center bg-black/20 backdrop-blur-md transition-all duration-400 opacity-0 pointer-events-none';
+        modal.className = 'fixed inset-0 z-[300] flex items-center justify-center bg-black/20  transition-all duration-400 opacity-0 pointer-events-none';
         document.body.appendChild(modal);
         modal.onclick = function(e) {
             if (e.target === modal) {
@@ -15128,7 +15128,7 @@ window.showSurveyReplyDetail = function(safeContent) {
     
     // 渲染全新的现代风格圆角面板
     modal.innerHTML = `
-        <div id="survey-reply-content" class="relative w-[85%] max-w-[320px] bg-white/95 backdrop-blur-xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] flex flex-col transition-all duration-300 transform scale-95 opacity-0 rounded-[24px] border border-white" style="color: var(--ink);">
+        <div id="survey-reply-content" class="relative w-[85%] max-w-[320px] bg-white/95  shadow-[0_20px_50px_rgba(0,0,0,0.1)] flex flex-col transition-all duration-300 transform scale-95 opacity-0 rounded-[24px] border border-white" style="color: var(--ink);">
             
             <!-- 顶部标题栏 -->
             <div class="px-6 pt-6 pb-4 flex justify-between items-center border-b border-dashed" style="border-color: var(--ink-light);">
