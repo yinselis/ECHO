@@ -10976,6 +10976,7 @@ if (quoteMatch) {
     currentBubble = currentBubble.replace(quoteMatch[0], '').trim();
 }
 
+let freshMsgs = await window.getFromDB(chatKey) || [];
 // 【新增】：检测是否撤回
 let revokedContent = null;
 const revokeMatch = currentBubble.match(/\[撤回消息[：:]\s*(.*?)\]/i);
@@ -11009,7 +11010,7 @@ if (isBlocked) {
 
 // 保存真实回复并渲染 (注意这里的 role 用 currentRole)
 // 【核心修复：防覆盖】保存前重新拉取最新数据库，防止等待期间用户抢红包的记录被清空！
-let freshMsgs = await window.getFromDB(chatKey) || [];
+
 
 freshMsgs.push({ 
     role: currentRole, 
