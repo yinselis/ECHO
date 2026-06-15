@@ -1,3 +1,5 @@
+// 刷新缓存专用注释：修复点击通知无法越过层级进入聊天室的 Bug
+// Trigger Update: v2.0
 self.addEventListener('fetch', function(event) {
     // 保持空监听，骗过校验
 });
