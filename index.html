@@ -10617,7 +10617,7 @@ You and the user are physically separated by a distance and are NOT face-to-face
 - Accept/Return Red Packet: [领取红包] / [退回红包]
 - Survey Answer: [提交问卷] + text
 - Diary Invite: [发起日记邀请: X天] / [同意交换日记] / [拒绝交换日记: reason]
-- Poke: [戳一戳: action]
+- Poke: [戳一戳: action] (e.g., [戳一戳: 弹了弹你的额头]) 
 - Quote: [引用: text]
 - Revoke message: [撤回消息: text]
 - Send Image: [发送图片: description]
@@ -10984,6 +10984,15 @@ if (revokeMatch) {
     currentRole = 'system';
     revokedContent = revokeMatch[1].trim();
     currentBubble = `${taName} 撤回了一条消息`;
+
+    // ✨ 核心修复：把刚刚发出来的原消息“吃掉”！
+    if (freshMsgs.length > 0) {
+        let prevMsg = freshMsgs[freshMsgs.length - 1];
+        // 如果上一条是它刚发的废话，直接把它从数组里删掉，不在屏幕上显示
+        if (prevMsg.role === 'assistant' && prevMsg.msgType === 'text') {
+            freshMsgs.pop(); 
+        }
+    }
 }
 
 // 【新增】：检测是否发送假图
@@ -15225,7 +15234,7 @@ Before replying, silently ask yourself:
     sysPrompt += `\n\n[Interaction Rules] (Use EXACT tags at the VERY BEGINNING of your bubble):
 - Send Voice: [发送语音: Xs] (X=seconds)
 - Send Red Packet: [发送红包: X] (X=amount)
-- Poke: [戳一戳: action]
+- Poke: [戳一戳: action] (e.g., [戳一戳: 弹了弹你的额头]) 
 - Send Image: [发送图片: description]
 
 (Universal Format Example: [气泡][戳一戳: 揉了揉你的头发] 终于忙完了。)
