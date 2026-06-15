@@ -10244,11 +10244,11 @@ window.getFromDB(`oc_phone_chat_bg_${charId}`).then(bg => {
     }
 });
 
-// === 新增：加载专属气泡 CSS ===
-let savedCss = await window.getFromDB(`oc_phone_chat_custom_css_${charId}`);
-if (!savedCss) savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${charId}`);
-if (!savedCss) savedCss = await window.getFromDB('oc_phone_chat_custom_css');
-if (!savedCss) savedCss = localStorage.getItem('oc_phone_chat_custom_css') || '';
+// === 修改：优先读取 localStorage，防止带链接的CSS被数据库拦截导致读取旧缓存 ===
+let savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${charId}`);
+if (!savedCss) savedCss = await window.getFromDB(`oc_phone_chat_custom_css_${charId}`);
+if (!savedCss) savedCss = localStorage.getItem('oc_phone_chat_custom_css');
+if (!savedCss) savedCss = await window.getFromDB('oc_phone_chat_custom_css') || '';
 const styleTag = document.getElementById('chat-custom-style-tag');
 if (styleTag) {
     styleTag.innerHTML = savedCss + "\n" + savedCss.replace(/#chat-messages-container/g, '#chat-css-preview');
@@ -11271,9 +11271,9 @@ window.openChatSettingsModal = async function() {
                 });
             }
         }
-        // 4. 初始化专属气泡 CSS 框
-let savedCss = await window.getFromDB(`oc_phone_chat_custom_css_${currentChatId}`);
-        if (!savedCss) savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${currentChatId}`) || '';
+        // 4. 初始化专属气泡 CSS 框 (优先读 localStorage)
+let savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${currentChatId}`);
+if (!savedCss) savedCss = await window.getFromDB(`oc_phone_chat_custom_css_${currentChatId}`) || '';
         const cssInput = document.getElementById('chat-custom-css-input');
         if (cssInput) cssInput.value = savedCss;
         
