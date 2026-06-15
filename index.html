@@ -10950,24 +10950,26 @@ else if (currentBubble.includes('[提交问卷]')) {
     if(!currentBubble) currentBubble = "已填完问卷，没什么想说的。";
 }
 // 检测是否发语音
-else if (currentBubble.match(/\[发送语音[：:]\s*(\d+)s?\]/i)) {
-    const voiceMatch = currentBubble.match(/\[发送语音[：:]\s*(\d+)s?\]/i);
+else if (currentBubble.match(/\[发送(?:了一条)?语音[：:]?\s*(\d+)s?\]/i)) {
+    const voiceMatch = currentBubble.match(/\[发送(?:了一条)?语音[：:]?\s*(\d+)s?\]/i);
     saveMsgType = 'voice';
     saveVoiceDuration = parseInt(voiceMatch[1]) || 3;
     currentBubble = currentBubble.replace(voiceMatch[0], '').trim();
     if (!currentBubble) currentBubble = '...';
 } 
-// 【新增】：检测是否戳一戳
-else if (currentBubble.match(/\[戳一戳[：:]\s*([\s\S]*?)\]/i)) {
-    const pokeMatch = currentBubble.match(/\[戳一戳[：:]\s*([\s\S]*?)\]/i);
+// 【新增】：检测是否戳一戳/动作互动
+else if (currentBubble.match(/\[(?:戳一戳|动作互动|系统动作互动)[：:]?\s*([\s\S]*?)\]/i)) {
+    const pokeMatch = currentBubble.match(/\[(?:戳一戳|动作互动|系统动作互动)[：:]?\s*([\s\S]*?)\]/i);
     saveMsgType = 'poke';
     
     let actionText = pokeMatch[1].trim();
-    // 如果 AI 生成的动作自带了“我”字开头，直接砍掉
     if (actionText.startsWith('我')) {
         actionText = actionText.substring(1).trim();
     }
-    
+    // 拦截画蛇添足的名字
+    if (actionText.toLowerCase().startsWith(taName.toLowerCase())) {
+        actionText = actionText.substring(taName.length).trim();
+    }
     currentBubble = `${taName} ${actionText}`;
 }
 // 检测是否发红包
@@ -11532,6 +11534,12 @@ const timeFormat = localStorage.getItem('oc_phone_time_format') || '24';
 
 // 【修复：渲染前先抢救一下正在输入的气泡！】
 let typingNode = document.getElementById('chat-typing-global');
+
+// 【修复：记录刷新前距离底部的距离，防止跳回顶部】
+let distanceFromBottom = 0;
+if (!isAppend && container) {
+    distanceFromBottom = container.scrollHeight - container.scrollTop;
+}
 
 if (!isAppend) container.innerHTML = '';
 
@@ -12284,6 +12292,13 @@ if (typingEl) {
 if (isAppend) container.scrollTop = container.scrollHeight;
 
 });
+
+if (!isAppend && container) {
+    requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight - distanceFromBottom;
+    });
+}
+
 }
 
 // ==========================================
@@ -12588,52 +12603,52 @@ window.openRedPacket = async function(msgIndex, isMe, avatarHtml, senderName, my
                 if (g.amount === maxAmount) isBest = true;
             }
 
-            listHtml += `
-            <div class="flex justify-between items-center w-full py-3 border-b border-dashed" style="border-color: var(--ink-light);">
-                <div class="flex flex-col text-left">
-                    <span class="text-xs font-bold" style="color: var(--ink);">${g.name}</span>
-                    <span class="text-[9px] opacity-40 font-mono mt-0.5" style="color: var(--ink);">${timeStr}</span>
-                </div>
-                <div class="flex flex-col items-end">
-                    <span class="text-sm font-bold font-mono" style="color: var(--ink);">${g.amount.toFixed(2)} 元</span>
-                    ${isBest ? `<span class="text-[9px] font-bold text-yellow-600 flex items-center mt-0.5">⭐手气最佳</span>` : ''}
-                </div>
-            </div>`;
+listHtml += `
+<div class="flex justify-between items-center w-full py-3 border-b border-dashed" style="border-color: var(--ink-light);">
+    <div class="flex flex-col text-left flex-1 min-w-0 pr-2">
+        <span class="text-xs font-bold truncate w-full" style="color: var(--ink);">${g.name}</span>
+        <span class="text-[9px] opacity-40 font-mono mt-0.5" style="color: var(--ink);">${timeStr}</span>
+    </div>
+    <div class="flex flex-col items-end shrink-0 max-w-[50%]">
+        <span class="text-sm font-bold font-mono truncate w-full text-right" style="color: var(--ink);">${g.amount.toFixed(2)} 元</span>
+        ${isBest ? `<span class="text-[9px] font-bold text-yellow-600 flex items-center mt-0.5 shrink-0">⭐手气最佳</span>` : ''}
+    </div>
+</div>`;
         });
     }
 
-    let stateHtml = '';
-        if (iGrabbed) {
-        stateHtml = `
-            <div id="rp-opened" class="w-full flex flex-col items-center justify-start z-10 flex-1">
-                <div class="font-black text-[3.5rem] flex items-baseline tracking-tighter mb-1 mt-2" style="color: var(--ink);">
-                    <span class="text-2xl mr-1 font-bold opacity-60">¥</span>${iGrabbed.amount.toFixed(2)}
-                </div>
-                <div class="px-4 py-1 rounded-full bg-black/5 text-[9px] tracking-widest opacity-60 font-bold" style="color: var(--ink);">已 存 入 余 额</div>
-                <div class="w-full mt-4 flex-1 overflow-y-auto custom-scrollbar">${listHtml}</div>
-            </div>`;
-    } else if (isEmpty) {
-        stateHtml = `
-            <div id="rp-empty" class="w-full flex flex-col items-center z-10 flex-1">
-                <div class="font-bold text-lg tracking-widest mt-10 mb-2 opacity-60" style="color: var(--ink);">手慢了，红包派完了</div>
-                <div class="w-full mt-8 flex-1 overflow-y-auto custom-scrollbar">${listHtml}</div>
-            </div>`;
-    } else {
-        stateHtml = `
-            <div id="rp-unopened" class="w-full flex flex-col items-center justify-center flex-1 transition-all duration-500 z-20 pb-4">
-                <span class="text-[9px] font-mono tracking-[0.2em] opacity-40 mb-6 uppercase" style="color: var(--ink);">Tap to Unpack</span>
-                <button onclick="window.claimRedPacket(${msgIndex}, '${senderName}', '${myName}')" 
-                    class="w-[72px] h-[72px] rounded-full bg-black/5 border shadow-sm flex items-center justify-center active:scale-90 transition-all hover:bg-black/10" style="border-color: var(--ink-light); color: var(--ink);">
-                    <span class="text-3xl font-black mb-1">開</span>
-                </button>
+let stateHtml = '';
+if (iGrabbed) {
+    stateHtml = `
+        <div id="rp-opened" class="w-full flex flex-col items-center justify-start z-10 flex-1 h-0">
+            <div class="font-black text-4xl sm:text-[3.5rem] leading-none flex items-baseline tracking-tighter mb-2 mt-3 max-w-[90%]" style="color: var(--ink);">
+                <span class="text-xl mr-1 font-bold opacity-60 shrink-0">¥</span><span class="truncate">${iGrabbed.amount.toFixed(2)}</span>
             </div>
-            <div id="rp-opened-container" class="w-full hidden flex-col items-center justify-start z-10 flex-1"></div>
-        `;
-    }
+            <div class="px-4 py-1 rounded-full bg-black/5 text-[9px] tracking-widest opacity-60 font-bold shrink-0" style="color: var(--ink);">已 存 入 余 额</div>
+            <div class="w-full mt-4 flex-1 overflow-y-auto custom-scrollbar" style="overscroll-behavior: contain; -webkit-overflow-scrolling: touch;">${listHtml}</div>
+        </div>`;
+} else if (isEmpty) {
+    stateHtml = `
+        <div id="rp-empty" class="w-full flex flex-col items-center z-10 flex-1 h-0">
+            <div class="font-bold text-lg tracking-widest mt-6 mb-2 opacity-60 shrink-0" style="color: var(--ink);">手慢了，红包派完了</div>
+            <div class="w-full mt-4 flex-1 overflow-y-auto custom-scrollbar" style="overscroll-behavior: contain; -webkit-overflow-scrolling: touch;">${listHtml}</div>
+        </div>`;
+} else {
+    stateHtml = `
+        <div id="rp-unopened" class="w-full flex flex-col items-center justify-center flex-1 transition-all duration-500 z-20 pb-4">
+            <span class="text-[9px] font-mono tracking-[0.2em] opacity-40 mb-6 uppercase" style="color: var(--ink);">Tap to Unpack</span>
+            <button onclick="window.claimRedPacket(${msgIndex}, '${senderName}', '${myName}')" 
+                class="w-[72px] h-[72px] rounded-full bg-black/5 border shadow-sm flex items-center justify-center active:scale-90 transition-all hover:bg-black/10 shrink-0" style="border-color: var(--ink-light); color: var(--ink);">
+                <span class="text-3xl font-black mb-1">開</span>
+            </button>
+        </div>
+        <div id="rp-opened-container" class="w-full hidden flex-col items-center justify-start z-10 flex-1 h-0"></div>
+    `;
+}
 
-    modal.innerHTML = `
-        <div class="relative w-[85%] max-w-[320px] min-h-[420px] max-h-[80vh] rounded-[32px] shadow-[0_20px_60px_rgba(0,0,0,0.08)] flex flex-col pt-8 px-6 pb-6 transition-all duration-500 transform scale-95 overflow-hidden" 
-             style="background-color: var(--bg-paper); border: 1px solid var(--ink-light);">
+modal.innerHTML = `
+    <div class="relative w-[85%] max-w-[320px] h-[450px] max-h-[80vh] rounded-[32px] shadow-[0_20px_60px_rgba(0,0,0,0.08)] flex flex-col pt-8 px-6 pb-6 transition-all duration-500 transform scale-95 overflow-hidden" 
+         style="background-color: var(--bg-paper); border: 1px solid var(--ink-light);">
              
             <button onclick="document.getElementById('rp-popup-modal').classList.add('opacity-0', 'pointer-events-none'); document.getElementById('rp-popup-modal').firstElementChild.classList.remove('scale-100');" 
                     class="absolute top-4 right-4 p-2 opacity-30 hover:opacity-80 active:scale-90 transition-all font-light text-2xl z-50" style="color: var(--ink);">
@@ -12721,27 +12736,27 @@ if (unopened) {
                 let maxAmount = Math.max(...msg.rpGrabbedList.map(item => item.amount));
                 if (g.amount === maxAmount) isBest = true;
             }
-            listHtml += `
-            <div class="flex justify-between items-center w-full py-3 border-b border-dashed" style="border-color: var(--ink-light);">
-                <div class="flex flex-col text-left">
-                    <span class="text-xs font-bold" style="color: var(--ink);">${g.name}</span>
-                    <span class="text-[9px] opacity-40 font-mono mt-0.5" style="color: var(--ink);">${timeStr}</span>
-                </div>
-                <div class="flex flex-col items-end">
-                    <span class="text-sm font-bold font-mono" style="color: var(--ink);">${g.amount.toFixed(2)} 元</span>
-                    ${isBest ? `<span class="text-[9px] font-bold text-yellow-600 flex items-center mt-0.5">⭐手气最佳</span>` : ''}
-                </div>
-            </div>`;
+listHtml += `
+<div class="flex justify-between items-center w-full py-3 border-b border-dashed" style="border-color: var(--ink-light);">
+    <div class="flex flex-col text-left flex-1 min-w-0 pr-2">
+        <span class="text-xs font-bold truncate w-full" style="color: var(--ink);">${g.name}</span>
+        <span class="text-[9px] opacity-40 font-mono mt-0.5" style="color: var(--ink);">${timeStr}</span>
+    </div>
+    <div class="flex flex-col items-end shrink-0 max-w-[50%]">
+        <span class="text-sm font-bold font-mono truncate w-full text-right" style="color: var(--ink);">${g.amount.toFixed(2)} 元</span>
+        ${isBest ? `<span class="text-[9px] font-bold text-yellow-600 flex items-center mt-0.5 shrink-0">⭐手气最佳</span>` : ''}
+    </div>
+</div>`;
         });
 
         const openedContainer = document.getElementById('rp-opened-container');
-        if (openedContainer) {
-            openedContainer.innerHTML = `
-                <div class="font-black text-[3.5rem] flex items-baseline tracking-tighter mb-1 mt-2" style="color: var(--ink);">
-                    <span class="text-2xl mr-1 font-bold opacity-60">¥</span>${getAmount.toFixed(2)}
-                </div>
-                <div class="px-4 py-1 rounded-full bg-black/5 text-[9px] tracking-widest opacity-60 font-bold mb-2" style="color: var(--ink);">已 存 入 余 额</div>
-                <div class="w-full mt-4 flex-1 overflow-y-auto custom-scrollbar">${listHtml}</div>`;
+if (openedContainer) {
+    openedContainer.innerHTML = `
+        <div class="font-black text-4xl sm:text-[3.5rem] leading-none flex items-baseline tracking-tighter mb-2 mt-3 max-w-[90%]" style="color: var(--ink);">
+            <span class="text-xl mr-1 font-bold opacity-60 shrink-0">¥</span><span class="truncate">${getAmount.toFixed(2)}</span>
+        </div>
+        <div class="px-4 py-1 rounded-full bg-black/5 text-[9px] tracking-widest opacity-60 font-bold mb-2 shrink-0" style="color: var(--ink);">已 存 入 余 额</div>
+        <div class="w-full mt-4 flex-1 overflow-y-auto custom-scrollbar" style="overscroll-behavior: contain; -webkit-overflow-scrolling: touch;">${listHtml}</div>`;
             setTimeout(() => {
                 openedContainer.classList.remove('hidden');
                 openedContainer.classList.add('flex', 'animate-fade-in-up'); 
@@ -16210,7 +16225,11 @@ reply = reply.replace(/\[\d{2}-\d{2}\s\d{2}:\d{2}\]\s*/g, '').trim();
 // 【加上这三行强力镇压器，干掉幻觉】
 reply = reply.replace(/\d{1,2}月\d{1,2}日\s*\d{2}:\d{2}/g, '').trim();
 reply = reply.replace(/群员正在输入中\.\.\./g, '').trim();
-reply = reply.replace(/.*领取了你的红包.*/g, '').trim(); // 防止它自己生造别的文本
+reply = reply.replace(/.*领取了你的红包.*/g, '').trim(); 
+
+// 👇【新增：核弹级拦截补丁】如果它换行直接写了 [人名] 却漏了 [气泡]，强行补上并切开！
+reply = reply.replace(/(^|\n)\[(?!(?:气泡|发送|引用|译|翻译|表情|撤回|动作|禁言|解除|设置))([^\]]+)\]/g, '$1[气泡][$2]');
+// 👆
 
 let bubbles = reply.split(/\[气泡\]/i).map(s => s.trim()).filter(s => s);
 if (bubbles.length === 0) bubbles.push(reply);
@@ -16222,7 +16241,7 @@ for (let i = 0; i < bubbles.length - 1; i++) {
     if (m1) { name1 = m1[1]; content1 = bubbles[i].replace(/^\[.*?\]\s*/, '').trim(); }
 
     // 如果这个气泡【纯纯只有一个引用或语音标签】，没有别的话
-if (content1.match(/^\[(引用|发送语音)[：:]\s*[\s\S]*?\]$/)) {
+if (content1.match(/^\[(引用|发送(?:了一条)?语音)[：:]?\s*[\s\S]*?\]$/)) {
         let name2 = '';
         let m2 = bubbles[i+1].match(/^\[(.*?)\]/);
         if (m2) name2 = m2[1];
@@ -16273,7 +16292,7 @@ let revokedContent = null; // 【新增】保存撤回的真实内容
 const quoteMatch = currentContent.match(/\[引用[：:]\s*(.*?)\]/i);
 if (quoteMatch) { currentQuote = quoteMatch[1].trim(); currentContent = currentContent.replace(quoteMatch[0], '').trim(); }
 
-const voiceMatch = currentContent.match(/\[发送语音[：:]\s*(\d+)s?\]/i);
+const voiceMatch = currentContent.match(/\[发送(?:了一条)?语音[：:]?\s*(\d+)s?\]/i);
 if (voiceMatch) { saveMsgType = 'voice'; saveVoiceDuration = parseInt(voiceMatch[1]) || 3; currentContent = currentContent.replace(voiceMatch[0], '').trim(); if (!currentContent) currentContent = '...'; }
 
 const rpMatch = currentContent.match(/\[发送红包[：:]\s*([\d\.]+)\]/i);
@@ -16297,8 +16316,17 @@ else if (currentContent.includes('[退回红包]')) {
     currentContent = `${sName} 你的红包无人领取，已被退回`;
 }
 
-const pokeMatch = currentContent.match(/\[戳一戳[：:]\s*(.*?)\]/i);
-if (pokeMatch) { saveMsgType = 'poke'; let actionText = pokeMatch[1].trim(); if (actionText.startsWith('我')) actionText = actionText.substring(1).trim(); currentContent = `${sName} ${actionText}`; }
+const pokeMatch = currentContent.match(/\[(?:戳一戳|动作互动|系统动作互动)[：:]?\s*(.*?)\]/i);
+if (pokeMatch) { 
+    saveMsgType = 'poke'; 
+    let actionText = pokeMatch[1].trim(); 
+    if (actionText.startsWith('我')) actionText = actionText.substring(1).trim(); 
+    // 【拦截】：防止大模型画蛇添足加上自己的名字，比如“Nikto 抱起双臂等待”
+    if (actionText.toLowerCase().startsWith(sName.toLowerCase())) {
+        actionText = actionText.substring(sName.length).trim();
+    }
+    currentContent = `${sName} ${actionText}`; 
+}
 
 const fakeImgMatch = currentContent.match(/\[发送(?:图片|假图)[：:]\s*(.*?)\]/i);
 if (fakeImgMatch) { saveMsgType = 'fake_image'; currentContent = fakeImgMatch[1].trim(); }
