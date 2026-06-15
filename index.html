@@ -15228,7 +15228,8 @@ Status: ${meChar.prompt}`;
 You MUST break your response into multiple separate messages using the "[气泡]" tag. 
 EVERY SINGLE MESSAGE MUST START WITH "[气泡]".`;
     if (enableBilingual) {
-        sysPrompt += `\n[Translation]: If using non-Mandarin, MUST append translation tag at the end of the sentence. Format: [译: standard Chinese translation].`;
+        sysPrompt += `\n[Translation]: If you are using any non-Mandarin language (e.g., English, Japanese) or very hard-to-understand dialects, you MUST append a translation tag at the end of EACH sentence. Format EXACTLY like this: [译: standard Chinese translation]. Example: What a beautiful day! [译: 今天天气真不错！]
+CRITICAL: ONLY use [译: xxx] brackets! NEVER use normal round brackets like (xxx) or （xxx） for translation!`;
     }
 
     // 7. 注入长期记忆卡片 (让诈尸也能记住以前的事)
@@ -15367,9 +15368,14 @@ if (replyText) {
     }
 
     // 【新增修复】：如果笨笨大模型忘了写 [气泡] 标签但换行了，强行帮它切割，防止挤成一坨！
-    if (!replyText.includes('[气泡]') && replyText.includes('\n')) {
-        replyText = replyText.split('\n').filter(s => s.trim()).map(s => '[气泡]' + s.trim()).join('\n');
-    }
+if (!replyText.includes('[气泡]') && replyText.includes('\n')) {
+    replyText = replyText.split('\n').filter(s => s.trim()).map(s => '[气泡]' + s.trim()).join('\n');
+}
+
+// 【新增修复】：如果 AI 还是手贱发了圆括号的纯中文翻译，强行给它套上 [译:] 的皮！
+if (enableBilingual) {
+    replyText = replyText.replace(/[（\(]([\u4e00-\u9fa5，。！？、\s]+)[）\)]/g, ' [译: $1]');
+}
 
     // 2. 切割气泡
     let bubbles = replyText.split(/\[气泡\]/i).map(s => s.trim()).filter(s => s);
@@ -15475,8 +15481,14 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', function(event) {
         // 如果是处于后台被唤醒
         if (event.data && event.data.type === 'JUMP_TO_CHAT') {
+            // 核心修复：必须先把整个"通讯App"滑出来，否则会被主屏幕盖住
+            if (typeof openApp === 'function') openApp('chat'); 
+            
             if (typeof openChatRoom === 'function') {
-                openChatRoom(event.data.charId, event.data.charName);
+                setTimeout(() => {
+                    // 等 300 毫秒外面板滑出的动画跑一下，再拉出具体的聊天室
+                    openChatRoom(event.data.charId, event.data.charName);
+                }, 300); 
             }
         }
     });
@@ -15489,8 +15501,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const jumpName = params.get('charName');
     if (jumpId && jumpName) {
         setTimeout(() => {
+            // 核心修复：同理，冷启动也要先呼出通讯App
+            if (typeof openApp === 'function') openApp('chat'); 
+            
             if (typeof openChatRoom === 'function') {
-                openChatRoom(jumpId, decodeURIComponent(jumpName));
+                setTimeout(() => {
+                    openChatRoom(jumpId, decodeURIComponent(jumpName));
+                }, 300);
             }
         }, 800); // 稍微等0.8秒数据库加载完，瞬间弹进聊天室
     }
