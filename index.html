@@ -13138,11 +13138,15 @@ window.mergeAllChatMemories = async function() {
         btn.classList.add('opacity-50');
     }
     
-    try {
-        let combinedText = activeMemories.map(m => `【片段】\n${m.content}`).join('\n\n');
-        
-        // 智能判断当前是群聊还是单聊
-        const isGroup = currentChatId.startsWith('group_');
+try {
+    // 【修复时间】：把旧记忆卡片的时间贴在标题上
+    let combinedText = activeMemories.map(m => {
+        let tStr = m.timestamp ? new Date(m.timestamp).toLocaleDateString() : '未知时间';
+        return `【记忆片段 (记录于 ${tStr})】\n${m.content}`;
+    }).join('\n\n');
+    
+    // 智能判断当前是群聊还是单聊
+    const isGroup = currentChatId.startsWith('group_');
         let targetName = 'TA';
         if (isGroup) {
             const groups = (await window.getFromDB('oc_phone_groups')) || [];
@@ -13153,7 +13157,9 @@ window.mergeAllChatMemories = async function() {
             const char = window.globalAvatarCache.find(c => c.id === currentChatId);
             targetName = char ? char.name : 'TA';
         }
-        const myName = localStorage.getItem('oc_phone_id_name') || '我';
+        const savedMeId = localStorage.getItem('oc_phone_chat_me_' + currentChatId);
+const meChar = savedMeId && window.globalAvatarCache ? window.globalAvatarCache.find(c => c.id === savedMeId) : null;
+const myName = meChar ? meChar.name : '用户';
         
         let customPrompt = localStorage.getItem('oc_phone_chat_mem_prompt_global_' + currentChatId) || '';
         let prompt = customPrompt.trim() !== '' ? customPrompt : '';
@@ -13245,12 +13251,21 @@ const unsummarizedMsgs = messages.slice(lastIndex);
             const char = window.globalAvatarCache.find(c => c.id === currentChatId);
             targetName = char ? char.name : 'TA';
         }
-        const myName = localStorage.getItem('oc_phone_id_name') || '我';
-        
-        let chatText = unsummarizedMsgs.map(m => {
-            let speaker = m.role === 'user' ? myName : (isGroup ? (m.speakerName || '群员') : targetName);
-            return `${speaker}: ${m.content}`;
-        }).join('\n');
+        // 【修复人称】：读取当前聊天的专属玩家档案，如果没有，默认叫"用户"而不是"我"
+const savedMeId = localStorage.getItem('oc_phone_chat_me_' + currentChatId);
+const meChar = savedMeId && window.globalAvatarCache ? window.globalAvatarCache.find(c => c.id === savedMeId) : null;
+const myName = meChar ? meChar.name : '用户';
+
+// 【修复时间】：给每一句话前面强行加上具体的时间戳！
+let chatText = unsummarizedMsgs.map(m => {
+    let speaker = m.role === 'user' ? myName : (isGroup ? (m.speakerName || '群员') : targetName);
+    let timeStr = '';
+    if (m.timestamp) {
+        let d = new Date(m.timestamp);
+        timeStr = `[${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}] `;
+    }
+    return `${timeStr}${speaker}: ${m.content}`;
+}).join('\n');
         
         let customPrompt = localStorage.getItem('oc_phone_chat_mem_prompt_' + currentChatId) || '';
         let prompt = customPrompt.trim() !== '' ? customPrompt : '';
@@ -13280,14 +13295,16 @@ const unsummarizedMsgs = messages.slice(lastIndex);
         if (summary) {
             let memories = (await window.getFromDB('oc_phone_chat_memories_' + currentChatId)) || [];
             memories.push({
-                id: Date.now().toString(),
-                content: summary,
-                isArchived: false,
-                timestamp: Date.now()
-            });
-            await window.saveToDB('oc_phone_chat_memories_' + currentChatId, memories);
-            
-            localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, messages.length);
+    id: Date.now().toString(),
+    content: summary,
+    isArchived: false,
+    timestamp: Date.now(),
+    startIndex: lastIndex,         // 【新增】：记录起点
+    endIndex: messages.length      // 【新增】：记录终点
+});
+await window.saveToDB('oc_phone_chat_memories_' + currentChatId, memories);
+
+localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, messages.length);
             
             window.showToast('提取成功！已生成新卡片');
             await window.renderChatMemories();
@@ -13340,12 +13357,21 @@ if (lastIndex > messages.length) {
             const char = window.globalAvatarCache.find(c => c.id === charId);
             targetName = char ? char.name : 'TA';
         }
-        const myName = localStorage.getItem('oc_phone_id_name') || '我';
-        
-        let chatText = sliceMsgs.map(m => {
-            let speaker = m.role === 'user' ? myName : (isGroup ? (m.speakerName || '群员') : targetName);
-            return `${speaker}: ${m.content}`;
-        }).join('\n');
+        // 【修复人称】
+const savedMeId = localStorage.getItem('oc_phone_chat_me_' + charId);
+const meChar = savedMeId && window.globalAvatarCache ? window.globalAvatarCache.find(c => c.id === savedMeId) : null;
+const myName = meChar ? meChar.name : '用户';
+
+// 【修复时间】
+let chatText = sliceMsgs.map(m => {
+    let speaker = m.role === 'user' ? myName : (isGroup ? (m.speakerName || '群员') : targetName);
+    let timeStr = '';
+    if (m.timestamp) {
+        let d = new Date(m.timestamp);
+        timeStr = `[${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}] `;
+    }
+    return `${timeStr}${speaker}: ${m.content}`;
+}).join('\n');
         
         let customPrompt = localStorage.getItem('oc_phone_chat_mem_prompt_' + charId) || '';
         let prompt = customPrompt.trim() !== '' ? customPrompt : '';
@@ -13376,13 +13402,15 @@ if (lastIndex > messages.length) {
             if (summary) {
                 let memories = (await window.getFromDB('oc_phone_chat_memories_' + charId)) || [];
                 memories.push({
-                    id: Date.now().toString(),
-                    content: summary,
-                    isArchived: false,
-                    timestamp: Date.now()
-                });
-                await window.saveToDB('oc_phone_chat_memories_' + charId, memories);
-                localStorage.setItem('oc_phone_chat_last_summary_index_' + charId, targetIndex);
+    id: Date.now().toString(),
+    content: summary,
+    isArchived: false,
+    timestamp: Date.now(),
+    startIndex: lastIndex,        // 【新增】：记录起点
+    endIndex: targetIndex         // 【新增】：记录终点
+});
+await window.saveToDB('oc_phone_chat_memories_' + charId, memories);
+localStorage.setItem('oc_phone_chat_last_summary_index_' + charId, targetIndex);
             }
         } catch (e) {
             console.error("自动总结失败", e);
@@ -13546,10 +13574,29 @@ window.deleteSingleChatMemory = async function(memId) {
     if (!confirm('确定要彻底销毁这条记忆吗？')) return;
     
     let memories = (await window.getFromDB('oc_phone_chat_memories_' + currentChatId)) || [];
-    memories = memories.filter((m, i) => !((m.id == memId) || (i == memId)));
     
+    // 找到准备删的那张卡片（看一眼它的背面信息）
+    let memToDelete = memories.find((m, i) => (m.id == memId) || (i == memId));
+    
+    memories = memories.filter((m, i) => !((m.id == memId) || (i == memId)));
     await window.saveToDB('oc_phone_chat_memories_' + currentChatId, memories);
-    window.showToast('卡片已销毁');
+
+    // 【智能时光倒流逻辑】
+    if (memToDelete && memToDelete.startIndex !== undefined) {
+        let currentIndex = parseInt(localStorage.getItem('oc_phone_chat_last_summary_index_' + currentChatId)) || 0;
+        // 如果当前书签刚好停在被删卡片的终点，说明你删的就是【最新的一章】！精准退回起点！
+        if (currentIndex === memToDelete.endIndex) {
+            localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, memToDelete.startIndex);
+        }
+    } else {
+        // 兜底补丁：如果发现活跃卡片全被删光了，强行归零重来
+        const activeMems = memories.filter(m => m.isArchived !== true);
+        if (activeMems.length === 0) {
+            localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, 0);
+        }
+    }
+
+    window.showToast('卡片已销毁，书签已退回，可重新提取');
     await window.renderChatMemories();
 }
 
