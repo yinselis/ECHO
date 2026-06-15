@@ -16067,7 +16067,7 @@ Use exact tags at the start of your bubble when appropriate:
 - Grab RP: [领取红包]
 - Poke: [戳一戳: action] (e.g., [戳一戳: 拍了拍你的肩膀])
 - Image: [发送图片: description]
-- Quote: [引用: text]
+- Quote: [引用: text] (MUST put the quote and your reply in the SAME bubble!)
 - Revoke: [撤回消息: content]
 - Admin Cmd (Only if your identity is 群主/管理员): [禁言: Name: Sec], [解除禁言: Name], [设置称号: Name: Title]
 - No Translation: For foreign languages, NEVER add Chinese in (). Output pure original language ONLY.`;
@@ -16204,9 +16204,30 @@ reply = reply.replace(/群员正在输入中\.\.\./g, '').trim();
 reply = reply.replace(/.*领取了你的红包.*/g, '').trim(); // 防止它自己生造别的文本
 
 let bubbles = reply.split(/\[气泡\]/i).map(s => s.trim()).filter(s => s);
-        if (bubbles.length === 0) bubbles.push(reply);
+if (bubbles.length === 0) bubbles.push(reply);
 
-        for (let i = 0; i < bubbles.length; i++) {
+// 【拦截补丁：拯救发癫的AI，把单独的引用标签和下一句话强行合并】
+for (let i = 0; i < bubbles.length - 1; i++) {
+    let name1 = '', content1 = bubbles[i];
+    let m1 = bubbles[i].match(/^\[(.*?)\]/);
+    if (m1) { name1 = m1[1]; content1 = bubbles[i].replace(/^\[.*?\]\s*/, '').trim(); }
+
+    // 如果这个气泡【纯纯只有一个引用标签】，没有别的话
+    if (content1.match(/^\[引用[：:]\s*[\s\S]*?\]$/)) {
+        let name2 = '';
+        let m2 = bubbles[i+1].match(/^\[(.*?)\]/);
+        if (m2) name2 = m2[1];
+
+        // 并且下一句还是他自己说的，直接把引用塞进下一句话里！
+        if (name1 === name2) {
+            bubbles[i+1] = bubbles[i+1].replace(/^\[.*?\]\s*/, `[${name2}] ${content1}\n`);
+            bubbles[i] = ''; // 把这个残废的空引用气泡销毁
+        }
+    }
+}
+bubbles = bubbles.filter(b => b !== ''); // 过滤掉残废气泡
+
+for (let i = 0; i < bubbles.length; i++) {
             let b = bubbles[i];
             let currentName = '神秘群员';
             let currentContent = b;
