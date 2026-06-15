@@ -20858,6 +20858,52 @@ window.importAllData = async function(event) {
         event.target.value = '';
     }
 };
+
+// ==========================================
+// 🚨 紧急逃生系统：疯狂点击屏幕强行重置自定义 CSS
+// ==========================================
+(function initPanicButton() {
+    let tapCount = 0;
+    let tapTimer = null;
+
+    // 使用 touchstart 和 capture: true，强制在最顶层捕获触摸，无视任何 CSS 层级错乱
+    document.addEventListener('touchstart', function(e) {
+        tapCount++;
+        
+        // 第一次点击时开启计时器
+        if (tapCount === 1) {
+            tapTimer = setTimeout(() => {
+                tapCount = 0; // 如果 2 秒内没点够次数，归零重新计算
+            }, 2000);
+        }
+
+        // 设定阈值：如果在 2 秒内连续点击屏幕超过 8 次
+        if (tapCount >= 8) {
+            clearTimeout(tapTimer);
+            tapCount = 0; // 重置计数器
+
+            // 1. 清除本地缓存中的 CSS 数据
+            localStorage.removeItem('oc_phone_custom_css');
+            
+            // 2. 强行拔掉当前页面正在生效的自定义 CSS
+            const styleTag = document.getElementById('user-custom-css');
+            if (styleTag) {
+                styleTag.innerHTML = '';
+            }
+            
+            // 3. 如果当前刚好停留在输入框页面，顺便清空输入框内容
+            const cssInput = document.getElementById('custom-css-input');
+            if (cssInput) {
+                cssInput.value = '';
+            }
+
+            // 4. 弹出提示并重载页面恢复原貌
+            alert("🚨 紧急逃生触发成功：所有自定义 CSS 已被强行清除！");
+            // 可选：为了最安全，可以直接强制刷新一下页面
+            // location.reload(); 
+        }
+    }, { capture: true, passive: true });
+})();
 </script>
 
 <!-- 多存档管理弹窗 -->
