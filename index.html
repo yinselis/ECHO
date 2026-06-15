@@ -3102,7 +3102,7 @@ body, html {
                 </button>
                 
                 <!-- 文本输入框 -->
-                <textarea id="chat-input-text" class="flex-1 h-[42px] max-h-28 py-[10px] px-3 bg-black/5 outline-none text-[15px] custom-scrollbar resize-none transition-colors focus:bg-black/10" style="border-radius: 21px; line-height: 1.4; color: var(--ink);" placeholder="发送消息..."></textarea>
+                <textarea id="chat-input-text" class="flex-1 h-[42px] max-h-28 py-[10px] px-3 bg-black/5 outline-none text-[0.9375rem] custom-scrollbar resize-none transition-colors focus:bg-black/10" style="border-radius: 21px; line-height: 1.4; color: var(--ink);" placeholder="发送消息..."></textarea>
                 
 <!-- 接收键：无边框轻量设计 -->
 <button id="btn-chat-receive" class="w-[42px] h-[42px] flex items-center justify-center active:scale-90 transition-transform shrink-0 bg-black/5" style="color: var(--ink); border-radius: 21px;" onclick="receiveChatMessage()">
@@ -7532,6 +7532,8 @@ async function initTimeMachine() {
         }
     });
 
+meSelect.value = "";
+
     // 【新增地图联动】：把地图上的据点自动加载到“故事背景”的下拉菜单里
     const maps = (await getFromDB('oc_phone_maps')) || [];
     const bgSelect = document.getElementById('tm-bg-preset');
@@ -8117,7 +8119,7 @@ if (role === 'assistant' && multiMode === 'split' && selectedTmNpcs.length > 1) 
                             <div class="sketch-parent transition-transform flex justify-end">
                                 <div class="sketch-box ${shape} p-3 bg-white/90 font-bold text-sm shadow-sm text-left flex flex-col max-w-full break-words overflow-hidden transition-opacity" style="border: 1px solid var(--ink); color: var(--ink); opacity: ${bubbleOpacity};">
                                     <div class="w-full break-words">
-                                        ${formattedContent.replace(/\n/g, '<br>').replace(/\*\*([^\*]+)\*\*/g, '<span class="font-bold">$1</span>').replace(/\*([^\*]+)\*/g, '<span class="italic opacity-70" style="font-family: serif;">$1</span>')}
+                                        ${formattedContent.replace(/\n/g, '<br>').replace(/\*\*([^\*]+)\*\*/g, '<span class="font-bold">$1</span>').replace(/\*([^\*]+)\*/g, '<span class="italic opacity-70">$1</span>')}
                                     </div>
                                     ${bubble.isPlayer && role === 'assistant' ? branchUI : ''}
                                 </div>
@@ -8137,7 +8139,7 @@ if (role === 'assistant' && multiMode === 'split' && selectedTmNpcs.length > 1) 
                 });
                 formattedContent = formattedContent.replace(/\[状态更新\]([\s\S]*?)(?=\[剧情推进\]|\[观测记录\]|\[行动选项\]|\[干涉选项\]|\[突发事件\]|<details|$)/gi, '');
                 formattedContent = formattedContent.replace(/\[剧情推进\]/gi, '').replace(/\[观测记录\]/gi, '');
-                formattedContent = formattedContent.trim().replace(/\n+/g, '<br><br>').replace(/(<br>)*<details/gi, '<details').replace(/<\/details>(<br>)*/gi, '</details>').replace(/\*\*([^\*]+)\*\*/g, '<span class="font-bold">$1</span>').replace(/\*([^\*]+)\*/g, '<span class="italic opacity-70" style="font-family: serif;">$1</span>');
+                formattedContent = formattedContent.trim().replace(/\n+/g, '<br><br>').replace(/(<br>)*<details/gi, '<details').replace(/<\/details>(<br>)*/gi, '</details>').replace(/\*\*([^\*]+)\*\*/g, '<span class="font-bold">$1</span>').replace(/\*([^\*]+)\*/g, '<span class="italic opacity-70">$1</span>');
                 formattedContent = formattedContent.replace(/^(好的|明白|收到|游戏开始)[^。！？]*[。！？\n]*\s*/i, '');
 
                 msgWrapper.innerHTML = `
@@ -8619,7 +8621,7 @@ window.saveTMProgressToSlot = async function() {
     let defaultName = tmCurrentQuest ? tmCurrentQuest.substring(0, 12) + "..." : "新存档";
     const modal = document.getElementById('tm-save-name-modal');
     const input = document.getElementById('tm-save-name-input');
-    input.value = defaultName;
+    input.value = "";
     modal.classList.remove('hidden');
     input.focus();
 };
@@ -12072,11 +12074,11 @@ if (msg.quote) {
 
 } else {
     // 我方（右侧）：头像在右下角，所以把【右下角】改成 4px，其他角 22px
-    myBubbleClass = `msg-type-text px-[15px] py-[10px] text-sm relative shadow-[0_2px_6px_rgba(0,0,0,0.05)] break-words whitespace-pre-wrap leading-snug w-fit h-fit text-left`;    
+    myBubbleClass = `msg-type-text px-[15px] py-[10px] text-[0.9375rem] relative shadow-[0_2px_6px_rgba(0,0,0,0.05)] break-words whitespace-pre-wrap leading-snug w-fit h-fit text-left`;
     myBubbleStyle = `background: ${bubbleColor}; color: ${bubbleTextColor}; border-radius: 22px 22px 4px 22px; border: none;`; 
     
     // 对方（左侧）：头像在左下角，所以把【左下角】改成 4px，其他角 22px
-    taBubbleClass = `msg-type-text px-[15px] py-[10px] text-sm relative shadow-[0_2px_6px_rgba(0,0,0,0.05)] break-words whitespace-pre-wrap leading-snug w-fit h-fit text-left`;
+    taBubbleClass = `msg-type-text px-[15px] py-[10px] text-[0.9375rem] relative shadow-[0_2px_6px_rgba(0,0,0,0.05)] break-words whitespace-pre-wrap leading-snug w-fit h-fit text-left`;
     taBubbleStyle = `background-color: white; color: var(--ink); border-radius: 22px 22px 22px 4px; border: none;`; 
 }
 
