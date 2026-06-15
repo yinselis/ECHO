@@ -11715,11 +11715,11 @@ if (pureStickerUrl) {
     // 【防闪烁修复】：把 max-width 改成纯 width 和 height 强制占位
     displayContent = `<img src="${pureStickerUrl}" class="shrink-0" style="width: 90px; height: 90px; object-fit: contain; background: transparent; border-radius: 0; box-shadow: none;" />`;
 } else if (msg.imageUrl) {
-    // 【防闪烁修复】：给普通图片也锁死宽高，还没加载出来前显示极淡的底色(bg-black/5)占位
+    // 【修复】：取消强制裁剪，保留图片原本的比例尺寸，仅限制最大宽高防止霸屏
     let marginStyle = textContent ? "margin-bottom: 8px;" : "margin-bottom: 0px; display: block;";
-    displayContent = `<img src="${msg.imageUrl}" class="shrink-0 bg-black/5" style="width: 140px; height: 180px; object-fit: cover; border-radius: 8px; ${marginStyle}; box-shadow: 0 2px 8px rgba(0,0,0,0.05);" />`;
+    displayContent = `<img src="${msg.imageUrl}" class="shrink-0 bg-black/5" style="max-width: 150px; max-height: 220px; width: auto; height: auto; border-radius: 8px; ${marginStyle}; box-shadow: 0 2px 8px rgba(0,0,0,0.05);" />`;
     if (textContent) displayContent += textContent;
-} 
+}
 else if (isVoice) {
     const micIcon = isMe 
         ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform: scaleX(-1);"><path d="M11 5L6 9H2v6h4l5 4V5z"></path><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>`
@@ -14172,12 +14172,17 @@ window.bubbleAction = async function(action) {
             senderName = '我';
         }
     } else {
-        const remarkName = localStorage.getItem('oc_phone_chat_remark_' + currentChatId);
-        if (remarkName) {
-            senderName = remarkName;
+        // 【核心修复】：判定如果是群聊并且发言人有名字，抓取正确的群员名！
+        if (window.isGroupChatting && msg.speakerName) {
+            senderName = msg.speakerName;
         } else {
-            const char = window.globalAvatarCache ? window.globalAvatarCache.find(c => c.id === currentChatId) : null;
-            senderName = char ? char.name : 'TA';
+            const remarkName = localStorage.getItem('oc_phone_chat_remark_' + currentChatId);
+            if (remarkName) {
+                senderName = remarkName;
+            } else {
+                const char = window.globalAvatarCache ? window.globalAvatarCache.find(c => c.id === currentChatId) : null;
+                senderName = char ? char.name : 'TA';
+            }
         }
     }
 
@@ -15868,9 +15873,13 @@ window.openGroupChatWindow = async function(groupId) {
     currentChatId = groupId; 
     currentChatMsgLimit = 50;
 
-// === 新增：加载专属气泡 CSS，如果没有就退回使用美化中心的全局 CSS ===
-let savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${groupId}`);
-if (!savedCss) savedCss = localStorage.getItem('oc_phone_chat_custom_css') || '';
+// === 彻底改为大容量数据库读取气泡 ===
+let savedCss = await window.getFromDB(`oc_phone_chat_custom_css_${groupId}`);
+if (!savedCss) {
+    savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${groupId}`);
+    if (savedCss) await window.saveToDB(`oc_phone_chat_custom_css_${groupId}`, savedCss); // 顺手把老缓存搬进数据库
+}
+if (!savedCss) savedCss = await window.getFromDB('oc_phone_chat_custom_css') || '';
 const styleTag = document.getElementById('chat-custom-style-tag');
 if (styleTag) {
     styleTag.innerHTML = savedCss + "\n" + savedCss.replace(/#chat-messages-container/g, '#chat-css-preview');
@@ -15910,16 +15919,17 @@ if (avatarBox) {
         avatarBox.innerHTML = `<span class="text-sm font-bold opacity-50">群</span>`;
     }
     
-    // 动态把 Token 插在头像正右边
+    // 动态把 Token 插在头像正右边 (修复：先清理掉上一次残留的，防止重叠！)
     const avatarContainer = avatarBox.parentElement;
-    let tokenBadge = document.getElementById('group-token-badge');
-    if (!tokenBadge) {
-        tokenBadge = document.createElement('div');
-        tokenBadge.id = 'group-token-badge';
-        tokenBadge.className = 'absolute left-[110%] top-1/2 -translate-y-1/2 px-2 py-0.5 bg-black/5 rounded-[4px] text-[9px] font-mono opacity-50 whitespace-nowrap pointer-events-none';
-        tokenBadge.style.color = 'var(--ink)';
-        avatarContainer.appendChild(tokenBadge);
-    }
+    const oldBadges = avatarContainer.querySelectorAll('#group-token-badge');
+    oldBadges.forEach(b => b.remove());
+
+    let tokenBadge = document.createElement('div');
+    tokenBadge.id = 'group-token-badge';
+    tokenBadge.className = 'absolute left-[110%] top-1/2 -translate-y-1/2 px-2 py-0.5 bg-black/5 rounded-[4px] text-[9px] font-mono opacity-50 whitespace-nowrap pointer-events-none';
+    tokenBadge.style.color = 'var(--ink)';
+    avatarContainer.appendChild(tokenBadge);
+    
     const tokens = localStorage.getItem('oc_chat_real_tokens_' + groupId) || '0';
     tokenBadge.innerHTML = ` ${tokens} Tokens`;
     tokenBadge.style.display = 'block';
@@ -16450,7 +16460,6 @@ if (container) {
         if (globalEl) globalEl.remove();
     }
 };
-
 // ==========================
 // 6. 解散群聊功能
 // ==========================
@@ -16472,7 +16481,12 @@ window.dismissGroupChat = function() {
             groups = groups.filter(g => g.id !== groupId);
             await window.saveToDB('oc_phone_groups', groups);
             
-            // 清理缓存垃圾
+            // 👇【新增】：彻底清理记忆卡片数据库和总结书签
+            await window.saveToDB('oc_phone_chat_memories_' + groupId, []);
+            localStorage.removeItem('oc_phone_chat_last_summary_index_' + groupId);
+            // 👆
+
+            // 清理其他缓存垃圾
             localStorage.removeItem('oc_chat_real_tokens_' + groupId);
             localStorage.removeItem('oc_phone_chat_bg_' + groupId);
             
@@ -16603,58 +16617,58 @@ let myRoleLabel = '';
 if (group.owner === 'me' || group.owner === myId) myRoleLabel = '<span class="absolute -top-1 -right-2 bg-yellow-600 text-[var(--bg-paper)] text-[8px] px-1 rounded shadow-sm z-10 font-bold scale-90">群主</span>';
 else if (group.admins.includes('me') || group.admins.includes(myId)) myRoleLabel = '<span class="absolute -top-1 -right-2 bg-blue-500 text-[var(--bg-paper)] text-[8px] px-1 rounded shadow-sm z-10 font-bold scale-90">管理</span>';
 
-    // 渲染我
-    let membersHtml = `
-        <div class="flex flex-col items-center space-y-1 relative cursor-pointer active:scale-90" onclick="window.openGroupMemberAction('${myId}')">
-            <div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden bg-black/5" style="border-color: var(--ink); color: var(--ink);">
-                ${myAvatarHtml}
-            </div>
-            ${myRoleLabel}
-            <span class="text-[9px] font-bold truncate w-full text-center opacity-80" style="color: var(--ink);">${myName}</span>
-            ${myTitle}
+// 渲染我
+let membersHtml = `
+    <div class="flex flex-col items-center space-y-1 relative cursor-pointer active:scale-90 w-14" onclick="window.openGroupMemberAction('${myId}')">
+        <div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden bg-black/5 shrink-0" style="border-color: var(--ink); color: var(--ink);">
+            ${myAvatarHtml}
         </div>
-    `;
+        ${myRoleLabel}
+        <span class="text-[9px] font-bold truncate w-full text-center opacity-80 px-0.5" style="color: var(--ink);">${myName}</span>
+        ${myTitle}
+    </div>
+`;
 
-    // 获取其他成员信息
+// 获取其他成员信息
 const members = chars.filter(c => group.members.includes(c.id));
 
-    // 渲染其他成员
-    members.forEach(char => {
-        const remarkName = localStorage.getItem('oc_phone_chat_remark_' + char.id) || char.name;
-        const avatarHtml = char.avatar 
-            ? `<img src="${char.avatar}" class="w-full h-full object-cover">` 
-            : `<span class="text-[12px] font-bold opacity-50">${remarkName.substring(0,1)}</span>`;
-        
-        let roleLabel = '';
-        if (group.owner === char.id) roleLabel = '<span class="absolute -top-1 -right-2 bg-yellow-600 text-[var(--bg-paper)] text-[8px] px-1 rounded shadow-sm z-10 font-bold scale-90">群主</span>';
-else if (group.admins.includes(char.id)) roleLabel = '<span class="absolute -top-1 -right-2 bg-blue-500 text-[var(--bg-paper)] text-[8px] px-1 rounded shadow-sm z-10 font-bold scale-90">管理</span>';
-        
-        const titleLabel = group.titles[char.id] ? `<span class="text-[8px] opacity-60 border border-gray-400 px-1 mt-0.5 rounded text-gray-600">${group.titles[char.id]}</span>` : '';
-        const mutedLabel = group.muted.includes(char.id) ? `<div class="absolute inset-0 bg-white/70 flex items-center justify-center rounded-full"><span class="text-red-600 text-[10px] font-bold">禁言</span></div>` : '';
-
-        membersHtml += `
-            <div class="flex flex-col items-center space-y-1 relative cursor-pointer active:scale-90" onclick="window.openGroupMemberAction('${char.id}')">
-                <div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden bg-black/5 relative" style="border-color: var(--ink-light); color: var(--ink);">
-                    ${avatarHtml}
-                    ${mutedLabel}
-                </div>
-                ${roleLabel}
-                <span class="text-[9px] font-bold truncate w-full text-center opacity-80" style="color: var(--ink);">${remarkName}</span>
-                ${titleLabel}
-            </div>
-        `;
-    });
+// 渲染其他成员
+members.forEach(char => {
+    const remarkName = localStorage.getItem('oc_phone_chat_remark_' + char.id) || char.name;
+    const avatarHtml = char.avatar 
+        ? `<img src="${char.avatar}" class="w-full h-full object-cover">` 
+        : `<span class="text-[12px] font-bold opacity-50">${remarkName.substring(0,1)}</span>`;
+    
+    let roleLabel = '';
+    if (group.owner === char.id) roleLabel = '<span class="absolute -top-1 -right-2 bg-yellow-600 text-[var(--bg-paper)] text-[8px] px-1 rounded shadow-sm z-10 font-bold scale-90">群主</span>';
+    else if (group.admins.includes(char.id)) roleLabel = '<span class="absolute -top-1 -right-2 bg-blue-500 text-[var(--bg-paper)] text-[8px] px-1 rounded shadow-sm z-10 font-bold scale-90">管理</span>';
+    
+    const titleLabel = group.titles[char.id] ? `<span class="text-[8px] opacity-60 border border-gray-400 px-1 mt-0.5 rounded text-gray-600">${group.titles[char.id]}</span>` : '';
+    const mutedLabel = group.muted.includes(char.id) ? `<div class="absolute inset-0 bg-white/70 flex items-center justify-center rounded-full"><span class="text-red-600 text-[10px] font-bold">禁言</span></div>` : '';
 
     membersHtml += `
-        <div class="flex flex-col items-center space-y-1 cursor-pointer active:scale-90 transition-transform" onclick="window.openGroupInviteModal()">
-            <div class="w-10 h-10 rounded-full border border-dashed flex items-center justify-center bg-black/5" style="border-color: var(--ink); color: var(--ink);">
-                <span class="text-lg font-light opacity-50">+</span>
+        <div class="flex flex-col items-center space-y-1 relative cursor-pointer active:scale-90 w-14" onclick="window.openGroupMemberAction('${char.id}')">
+            <div class="w-10 h-10 rounded-full border flex items-center justify-center overflow-hidden bg-black/5 relative shrink-0" style="border-color: var(--ink-light); color: var(--ink);">
+                ${avatarHtml}
+                ${mutedLabel}
             </div>
-            <span class="text-[9px] font-bold truncate w-full text-center opacity-50" style="color: var(--ink);">邀请</span>
+            ${roleLabel}
+            <span class="text-[9px] font-bold truncate w-full text-center opacity-80 px-0.5" style="color: var(--ink);">${remarkName}</span>
+            ${titleLabel}
         </div>
     `;
+});
 
-    container.innerHTML = membersHtml;
+membersHtml += `
+    <div class="flex flex-col items-center space-y-1 cursor-pointer active:scale-90 transition-transform w-14" onclick="window.openGroupInviteModal()">
+        <div class="w-10 h-10 rounded-full border border-dashed flex items-center justify-center bg-black/5 shrink-0" style="border-color: var(--ink); color: var(--ink);">
+            <span class="text-lg font-light opacity-50">+</span>
+        </div>
+        <span class="text-[9px] font-bold truncate w-full text-center opacity-50 px-0.5" style="color: var(--ink);">邀请</span>
+    </div>
+`;
+
+container.innerHTML = membersHtml;
     document.getElementById('group-info-count').innerText = members.length + 1; // +1 是群主
 
     // 3. 弹窗滑出
@@ -16921,6 +16935,7 @@ window.handleUpdateGroupAvatar = function(event) {
 };
 
 // 保存群资料修改
+// 保存群资料修改
 window.saveGroupInfoDetails = async function() {
     const groupId = window.currentChatGroupId;
     let groups = (await window.getFromDB('oc_phone_groups')) || [];
@@ -16949,7 +16964,11 @@ window.saveGroupInfoDetails = async function() {
         } else {
             avatarBox.innerHTML = `<span class="text-sm font-bold opacity-50">群</span>`;
         }
-        // 保持 Token 小牌子
+        
+        // 【核心修复】：保持 Token 小牌子，先清除旧的防止重叠
+        const oldBadges = avatarBox.parentElement.querySelectorAll('#group-token-badge');
+        oldBadges.forEach(b => b.remove());
+
         const tokens = localStorage.getItem('oc_chat_real_tokens_' + groupId) || '0';
         avatarBox.parentElement.insertAdjacentHTML('beforeend', `<div id="group-token-badge" class="absolute left-[110%] top-1/2 -translate-y-1/2 px-2 py-0.5 bg-black/5 rounded-[4px] text-[9px] font-mono opacity-50 whitespace-nowrap pointer-events-none" style="color: var(--ink);"> ${tokens} Tokens</div>`);
     }
