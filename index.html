@@ -10245,7 +10245,9 @@ window.getFromDB(`oc_phone_chat_bg_${charId}`).then(bg => {
 });
 
 // === 新增：加载专属气泡 CSS ===
-let savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${charId}`);
+let savedCss = await window.getFromDB(`oc_phone_chat_custom_css_${charId}`);
+if (!savedCss) savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${charId}`);
+if (!savedCss) savedCss = await window.getFromDB('oc_phone_chat_custom_css');
 if (!savedCss) savedCss = localStorage.getItem('oc_phone_chat_custom_css') || '';
 const styleTag = document.getElementById('chat-custom-style-tag');
 if (styleTag) {
@@ -10601,7 +10603,8 @@ sysPrompt += `\n\n[Time]: Real time is ${currentTimeStr}.`;
 
         sysPrompt += `\n\n[Internal Reflection]:
 Before replying, silently ask yourself:
-- "What is my core personality? Am I avoiding all greasy/cheesy/OOC lines?"
+ - "Am I over-emphasizing occupational stereotypes? Avoid excessive use of professional jargon."
+- "What is my core personality? Am I avoiding all greasy/cheesy/OOC lines?" all greasy/cheesy/OOC lines?"
 - "What specific, complex emotions am I feeling right now?"
 - "What is my current background/era? Does my speech strictly align with it?"
 - "What was I doing off-screen just now? How does it affect my current mood/state?"
@@ -11269,7 +11272,8 @@ window.openChatSettingsModal = async function() {
             }
         }
         // 4. 初始化专属气泡 CSS 框
-        const savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${currentChatId}`) || '';
+let savedCss = await window.getFromDB(`oc_phone_chat_custom_css_${currentChatId}`);
+        if (!savedCss) savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${currentChatId}`) || '';
         const cssInput = document.getElementById('chat-custom-css-input');
         if (cssInput) cssInput.value = savedCss;
         
@@ -15359,7 +15363,8 @@ Status: ${meChar.prompt}`;
     const charLang = char.lang ? char.lang.trim() : '';
     sysPrompt += `\n\n[Internal Reflection]:
 Before replying, silently ask yourself:
-- "What is my core personality? Am I avoiding all greasy/cheesy/OOC lines?"
+ - "Am I over-emphasizing occupational stereotypes? Avoid excessive use of professional jargon."
+- "What is my core personality? Am I avoiding all greasy/cheesy/OOC lines?" all greasy/cheesy/OOC lines?"
 - "What specific, complex emotions am I feeling right now?"
 - "What is my current background/era? Does my speech strictly align with it?"
 - "What was I doing off-screen just now? How does it affect my current mood/state?"
