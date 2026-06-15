@@ -12844,18 +12844,32 @@ window.applyChatMenu = function(isVisible) {
 };
 
 // 4. 自定义气泡 CSS
-window.applyChatCustomCSS = function() {
+window.applyChatCustomCSS = async function() {
     const cssText = document.getElementById('chat-custom-css-input').value;
     // 魔法：原封不动保留原代码给真实聊天室，并在底下再复制一份专属给预览区！
     const autoPreviewCss = cssText + "\n" + cssText.replace(/#chat-messages-container/g, '#chat-css-preview');
     document.getElementById('chat-custom-style-tag').innerHTML = autoPreviewCss;
-    if(currentChatId) localStorage.setItem(`oc_phone_chat_custom_css_${currentChatId}`, cssText);
+    
+    if(currentChatId) {
+        // 同步保存到两个存储，防止被旧数据反向覆盖
+        localStorage.setItem(`oc_phone_chat_custom_css_${currentChatId}`, cssText);
+        if (typeof window.saveToDB === 'function') {
+            await window.saveToDB(`oc_phone_chat_custom_css_${currentChatId}`, cssText);
+        }
+    }
 };
 
-window.clearChatCustomCSS = function() {
+window.clearChatCustomCSS = async function() {
     document.getElementById('chat-custom-css-input').value = '';
     document.getElementById('chat-custom-style-tag').innerHTML = '';
-    if(currentChatId) localStorage.removeItem(`oc_phone_chat_custom_css_${currentChatId}`);
+    
+    if(currentChatId) {
+        // 同步从双端彻底清除
+        localStorage.removeItem(`oc_phone_chat_custom_css_${currentChatId}`);
+        if (typeof window.saveToDB === 'function') {
+            await window.saveToDB(`oc_phone_chat_custom_css_${currentChatId}`, null);
+        }
+    }
     window.showToast('气泡CSS已清空');
 };
 
