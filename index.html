@@ -3293,10 +3293,16 @@ body, html {
                 
                 <!-- 自定义 CSS 与 预览框 -->
                 <div class="flex flex-col space-y-2">
-                    <div class="flex justify-between items-center">
-                        <span class="text-xs font-bold" style="color: var(--ink);">自定义气泡 CSS</span>
-                        <button class="text-[10px] font-bold text-red-500 active:scale-90" onclick="window.clearChatCustomCSS()">清空重置</button>
-                    </div>
+                    <div class="flex justify-between items-center mb-1">
+    <span class="text-xs font-bold" style="color: var(--ink);">自定义气泡 CSS</span>
+    <div class="flex items-center space-x-2">
+        <select id="chat-css-preset-select" class="bg-black/5 outline-none text-[10px] p-1 rounded max-w-[80px] truncate" style="color: var(--ink);" onchange="window.loadChatCssPreset()">
+            <option value="">选择预设</option>
+        </select>
+        <button class="text-[10px] font-bold active:scale-90" style="color: var(--ink);" onclick="window.saveChatCssPreset()">保存</button>
+        <button class="text-[10px] font-bold text-red-500 active:scale-90" onclick="window.clearChatCustomCSS()">清空</button>
+    </div>
+</div>
                     <textarea id="chat-custom-css-input" class="w-full h-14 p-2 bg-black/5 outline-none text-[10px] font-mono border border-solid custom-scrollbar" style="border-color: var(--ink-light); color: var(--ink);" placeholder="/* 比如隐藏头像:\n#chat-messages-container .w-8.h-8.rounded-full { display: none !important; } */" oninput="window.applyChatCustomCSS()"></textarea>
                     
 <!-- 气泡预览效果框 -->
@@ -11263,9 +11269,12 @@ window.openChatSettingsModal = async function() {
             }
         }
         // 4. 初始化专属气泡 CSS 框
-const savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${currentChatId}`) || '';
-const cssInput = document.getElementById('chat-custom-css-input');
-if (cssInput) cssInput.value = savedCss;
+        const savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${currentChatId}`) || '';
+        const cssInput = document.getElementById('chat-custom-css-input');
+        if (cssInput) cssInput.value = savedCss;
+        
+        // 追加这一行：每次打开设置面板自动刷新预设列表
+        if(typeof window.renderChatCssPresets === 'function') window.renderChatCssPresets();
     }
 };
 
@@ -12846,7 +12855,68 @@ window.clearChatCustomCSS = function() {
     window.showToast('气泡CSS已清空');
 };
 
+// === 新增：气泡 CSS 预设管理系统 ===
+window.renderChatCssPresets = function() {
+    const presets = JSON.parse(localStorage.getItem('oc_phone_chat_css_presets') || '[]');
+    const select = document.getElementById('chat-css-preset-select');
+    if(!select) return;
+    select.innerHTML = '<option value="">选择预设...</option>';
+    presets.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.name;
+        opt.textContent = p.name;
+        select.appendChild(opt);
+    });
+};
 
+window.saveChatCssPreset = function() {
+    const cssText = document.getElementById('chat-custom-css-input').value.trim();
+    if(!cssText) {
+        window.showToast('当前CSS为空，无法保存');
+        return;
+    }
+    const name = prompt('请输入气泡预设名称 (同名将自动覆盖):');
+    if(!name) return;
+
+    let presets = JSON.parse(localStorage.getItem('oc_phone_chat_css_presets') || '[]');
+    const index = presets.findIndex(p => p.name === name);
+    if(index > -1) {
+        presets[index].css = cssText;
+    } else {
+        presets.push({name: name, css: cssText});
+    }
+    localStorage.setItem('oc_phone_chat_css_presets', JSON.stringify(presets));
+    window.showToast(`预设 [${name}] 已保存`);
+    window.renderChatCssPresets();
+    document.getElementById('chat-css-preset-select').value = name;
+};
+
+window.loadChatCssPreset = function() {
+    const select = document.getElementById('chat-css-preset-select');
+    const name = select.value;
+    if(!name) return;
+
+    // 巧妙利用系统原生的 Confirm 弹窗实现选择与删除
+    if(confirm(`应用预设: [${name}]\n\n点击【确定】应用到当前聊天。\n点击【取消】则是删除该预设。`)) {
+        const presets = JSON.parse(localStorage.getItem('oc_phone_chat_css_presets') || '[]');
+        const preset = presets.find(p => p.name === name);
+        if(preset) {
+            document.getElementById('chat-custom-css-input').value = preset.css;
+            window.applyChatCustomCSS();
+            window.showToast(`已应用预设: ${name}`);
+        }
+    } else {
+        if(confirm(`⚠️ 确定要彻底删除预设 [${name}] 吗？`)) {
+            let presets = JSON.parse(localStorage.getItem('oc_phone_chat_css_presets') || '[]');
+            presets = presets.filter(p => p.name !== name);
+            localStorage.setItem('oc_phone_chat_css_presets', JSON.stringify(presets));
+            window.showToast('预设已删除');
+            window.renderChatCssPresets();
+        } else {
+            select.value = ""; // 取消删除则恢复下拉框初始状态
+        }
+    }
+};
 
 // 监听聊天区点击，展开翻译
 document.addEventListener('click', function(e) {
