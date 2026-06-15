@@ -12159,12 +12159,16 @@ if (isMe) {
     if (currentGroup) {
         const savedMeId = localStorage.getItem('oc_phone_chat_me_' + window.currentChatGroupId) || 'me';
         
-        let roleHtml = '';
-        if (currentGroup.owner === 'me' || currentGroup.owner === savedMeId) {
-            roleHtml = `<span class="text-[8px] font-black px-1 rounded-[2px] mr-1 shadow-sm" style="background-color: var(--ink); color: var(--bg-paper);">群主</span>`;
-        } else if (currentGroup.admins && (currentGroup.admins.includes('me') || currentGroup.admins.includes(savedMeId))) {
-            roleHtml = `<span class="text-[8px] font-bold px-1 rounded-[2px] mr-1 shadow-sm border opacity-80" style="border-color: var(--ink); color: var(--ink);">管理</span>`;
-        }
+        // 【核心修复】：为历史遗留的老群加上容错兜底，只要没写主人，默认创建者就是群主
+const groupOwner = currentGroup.owner || 'me'; 
+const groupAdmins = currentGroup.admins || [];
+
+let roleHtml = '';
+if (groupOwner === 'me' || groupOwner === savedMeId) {
+    roleHtml = `<span class="text-[8px] font-black px-1 rounded-[2px] mr-1 shadow-sm" style="background-color: var(--ink); color: var(--bg-paper);">群主</span>`;
+} else if (groupAdmins.includes('me') || groupAdmins.includes(savedMeId)) {
+    roleHtml = `<span class="text-[8px] font-bold px-1 rounded-[2px] mr-1 shadow-sm border opacity-80" style="border-color: var(--ink); color: var(--ink);">管理</span>`;
+}
 
         let titleHtml = '';
         if (currentGroup.titles) {
@@ -15804,11 +15808,16 @@ if (memberIds.length < 1) { window.showToast("至少需要选择1名联系人");
 // 获取上传的群头像
 const avatarData = document.getElementById('group-avatar-data').value || null;
 
+// 补齐 owner 和 admins 权限字段！
 const newGroup = { 
     id: 'group_' + Date.now(), 
     name: groupName, 
-    avatar: avatarData, // 【新增】保存头像
+    avatar: avatarData, 
     members: memberIds, 
+    owner: 'me',       // <--- 就是少了这一行，加上无上的群主钢印！
+    admins: [],        // 顺手补齐管理数组
+    muted: [],         // 顺手补齐禁言数组
+    titles: {},        // 顺手补齐头衔对象
     createdAt: Date.now() 
 };
 let groups = (await window.getFromDB('oc_phone_groups')) || [];
@@ -16042,7 +16051,7 @@ ${myProfileDesc}
 【Core Rules】:
 1. Act as real humans. Banter, interrupt, or ignore naturally. No textbook answers.
 2. NO cheesy, greasy, or "domineering CEO" tropes. Speak authentically.
-3. Format: MUST split into short bubbles. EVERY bubble MUST start EXACTLY with "[气泡][Name]". (e.g., [气泡][Zhang San] Hello). ONLY play NPCs. NEVER roleplay the user "${myName}".
+3. Format: MUST split into short bubbles. EVERY SINGLE LINE spoken by a character MUST start EXACTLY with "[气泡][Name]". (e.g., [气泡][Zhang San] Hello). NEVER put two different characters' lines in the same bubble! ONLY play NPCs.
 4. Maintain cultural background and designated language setting.`;
 
     if (replyLimit !== '') sysPrompt += `\nLIMIT: Send EXACTLY ${replyLimit} short messages (bubbles).`;
@@ -16212,8 +16221,8 @@ for (let i = 0; i < bubbles.length - 1; i++) {
     let m1 = bubbles[i].match(/^\[(.*?)\]/);
     if (m1) { name1 = m1[1]; content1 = bubbles[i].replace(/^\[.*?\]\s*/, '').trim(); }
 
-    // 如果这个气泡【纯纯只有一个引用标签】，没有别的话
-    if (content1.match(/^\[引用[：:]\s*[\s\S]*?\]$/)) {
+    // 如果这个气泡【纯纯只有一个引用或语音标签】，没有别的话
+if (content1.match(/^\[(引用|发送语音)[：:]\s*[\s\S]*?\]$/)) {
         let name2 = '';
         let m2 = bubbles[i+1].match(/^\[(.*?)\]/);
         if (m2) name2 = m2[1];
