@@ -12946,6 +12946,10 @@ window.clearCurrentChatHistory = function() {
         async () => {
             const chatKey = 'oc_phone_chat_' + currentChatId;
             await window.saveToDB(chatKey, []); 
+            
+            // 👇【新增这一行】：连同总结书签一起烧毁
+            localStorage.removeItem('oc_phone_chat_last_summary_index_' + currentChatId);
+            
             window.showToast('通讯记录已彻底删除');
             if (typeof renderChatMessages === 'function') renderChatMessages(); 
             
@@ -12977,6 +12981,8 @@ window.deleteChatContact = function() {
 contactsIds = contactsIds.filter(id => id !== charId);
 await window.saveToDB('oc_phone_contacts', contactsIds);
             localStorage.removeItem('oc_phone_chat_remark_' + charId);
+// 👇【新增这一行】
+localStorage.removeItem('oc_phone_chat_last_summary_index_' + charId);
             
             window.showToast('联系人已删除，记录已销毁');
             window.closeChatSettingsModal(); 
@@ -13079,17 +13085,19 @@ document.addEventListener('DOMContentLoaded', () => {
 // ==========================================
 
 // 通用：请求总结专用的 API
-window.requestMemoryAPI = async function(sysPrompt) {
+// 多接收一个 targetCharId 参数，默认为 currentChatId
+window.requestMemoryAPI = async function(sysPrompt, targetCharId = currentChatId) {
     let useSub = false;
-    if (currentChatId) {
-        useSub = localStorage.getItem('oc_phone_chat_mem_sub_' + currentChatId) === 'true';
+    if (targetCharId) {
+        useSub = localStorage.getItem('oc_phone_chat_mem_sub_' + targetCharId) === 'true';
     } else {
         useSub = localStorage.getItem('oc_sub_api_enable') === 'true';
     }
 
-    let url = useSub ? localStorage.getItem('oc_sub_api_url') : localStorage.getItem('oc_phone_api_url');
-    let key = useSub ? localStorage.getItem('oc_sub_api_key') : localStorage.getItem('oc_phone_api_key');
-    let model = useSub ? localStorage.getItem('oc_sub_model') : localStorage.getItem('oc_phone_model');
+    // 如果开启了副API但没填内容，自动拿主API来兜底！
+let url = useSub ? (localStorage.getItem('oc_sub_api_url') || localStorage.getItem('oc_phone_api_url')) : localStorage.getItem('oc_phone_api_url');
+let key = useSub ? (localStorage.getItem('oc_sub_api_key') || localStorage.getItem('oc_phone_api_key')) : localStorage.getItem('oc_phone_api_key');
+let model = useSub ? (localStorage.getItem('oc_sub_model') || localStorage.getItem('oc_phone_model')) : localStorage.getItem('oc_phone_model');
     
     if (!url || !key || !model) throw new Error(useSub ? "副 API 未配置完整，请前往设置检查" : "主 API 未配置完整，请前往设置检查");
     if (url.endsWith('/')) url = url.slice(0, -1);
@@ -13172,7 +13180,7 @@ window.mergeAllChatMemories = async function() {
 
         prompt += `\n\n【记忆碎片】：\n${combinedText}`;
 
-        const summary = await window.requestMemoryAPI(prompt);
+        const summary = await window.requestMemoryAPI(prompt, currentChatId);
         if (summary) {
             memories.forEach(m => m.isArchived = true);
             memories.push({
@@ -13204,10 +13212,16 @@ window.triggerManualSummary = async function() {
     const originalText = btn ? btn.innerText : '提取近期对话';
     
     try {
-        const lastIndex = parseInt(localStorage.getItem('oc_phone_chat_last_summary_index_' + currentChatId)) || 0;
-        const messages = (await window.getFromDB('oc_phone_chat_' + currentChatId)) || [];
-        
-        const unsummarizedMsgs = messages.slice(lastIndex);
+        let lastIndex = parseInt(localStorage.getItem('oc_phone_chat_last_summary_index_' + currentChatId)) || 0;
+const messages = (await window.getFromDB('oc_phone_chat_' + currentChatId)) || [];
+
+// 【防呆补丁】：如果书签位置比现在的总消息还大（说明被清空过），强行归零！
+if (lastIndex > messages.length) {
+    lastIndex = 0;
+    localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, 0);
+}
+
+const unsummarizedMsgs = messages.slice(lastIndex);
         if (unsummarizedMsgs.length < 2) {
             window.showToast('近期没有足够的新对话可供提取');
             return;
@@ -13262,7 +13276,7 @@ window.triggerManualSummary = async function() {
         
         prompt += `\n\n【对话记录】：\n${chatText}`;
         
-        const summary = await window.requestMemoryAPI(prompt);
+        const summary = await window.requestMemoryAPI(prompt, currentChatId);
         if (summary) {
             let memories = (await window.getFromDB('oc_phone_chat_memories_' + currentChatId)) || [];
             memories.push({
@@ -13300,9 +13314,15 @@ window.checkAndTriggerMemorySummary = async function(charId) {
     if (window['is_summarizing_mem_' + charId]) return;
     
     const turnsLimit = parseInt(localStorage.getItem('oc_phone_chat_auto_turns_' + charId)) || 30;
-    const lastIndex = parseInt(localStorage.getItem('oc_phone_chat_last_summary_index_' + charId)) || 0;
-    
-    const messages = (await window.getFromDB('oc_phone_chat_' + charId)) || [];
+let lastIndex = parseInt(localStorage.getItem('oc_phone_chat_last_summary_index_' + charId)) || 0;
+
+const messages = (await window.getFromDB('oc_phone_chat_' + charId)) || [];
+
+// 【防呆补丁】
+if (lastIndex > messages.length) {
+    lastIndex = 0;
+    localStorage.setItem('oc_phone_chat_last_summary_index_' + charId, 0);
+}
     if (messages.length - lastIndex >= turnsLimit) {
         
         window['is_summarizing_mem_' + charId] = true;
@@ -13352,7 +13372,7 @@ window.checkAndTriggerMemorySummary = async function(charId) {
         prompt += `\n\n【对话记录】：\n${chatText}`;
         
         try {
-            const summary = await window.requestMemoryAPI(prompt);
+            const summary = await window.requestMemoryAPI(prompt, charId);
             if (summary) {
                 let memories = (await window.getFromDB('oc_phone_chat_memories_' + charId)) || [];
                 memories.push({
@@ -14923,7 +14943,7 @@ window.autoGenerateSchedule = async function() {
 
 注意：午夜零点请写 00:00。只准输出时间表，绝不要输出任何多余的废话和 markdown 标记！`;
 
-        const schedule = await window.requestMemoryAPI(prompt);
+        const schedule = await window.requestMemoryAPI(prompt, currentChatId); 
         if (schedule) document.getElementById('popover-schedule-text').value = schedule.trim();
     } catch (e) {
         window.showToast("生成失败: " + e.message);
@@ -14999,7 +15019,7 @@ window.handleDiaryInviteClick = async function(charId, msgIndex) {
 【要求】：只输出名字（必须带《》书名号），绝不输出其他任何废话。`;
                 
                 // 复用记忆管理系统里的无情提取 API
-                const responseName = await window.requestMemoryAPI(prompt);
+                const responseName = await window.requestMemoryAPI(prompt, charId); 
                 if (responseName && responseName.includes('《')) {
                     bookName = responseName.trim();
                 }
