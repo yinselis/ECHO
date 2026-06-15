@@ -10244,10 +10244,12 @@ window.getFromDB(`oc_phone_chat_bg_${charId}`).then(bg => {
     }
 });
 
-// === 修改：优先读取 localStorage，防止带链接的CSS被数据库拦截导致读取旧缓存 ===
-let savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${charId}`);
-if (!savedCss) savedCss = await window.getFromDB(`oc_phone_chat_custom_css_${charId}`);
-if (!savedCss) savedCss = localStorage.getItem('oc_phone_chat_custom_css');
+// === 彻底改为大容量数据库读取气泡 ===
+let savedCss = await window.getFromDB(`oc_phone_chat_custom_css_${charId}`);
+if (!savedCss) {
+    savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${charId}`);
+    if (savedCss) await window.saveToDB(`oc_phone_chat_custom_css_${charId}`, savedCss); // 顺手把老缓存搬进数据库
+}
 if (!savedCss) savedCss = await window.getFromDB('oc_phone_chat_custom_css') || '';
 const styleTag = document.getElementById('chat-custom-style-tag');
 if (styleTag) {
@@ -11271,9 +11273,9 @@ window.openChatSettingsModal = async function() {
                 });
             }
         }
-        // 4. 初始化专属气泡 CSS 框 (优先读 localStorage)
-let savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${currentChatId}`);
-if (!savedCss) savedCss = await window.getFromDB(`oc_phone_chat_custom_css_${currentChatId}`) || '';
+        // 4. 初始化专属气泡 CSS 框 (彻底读大容量数据库)
+let savedCss = await window.getFromDB(`oc_phone_chat_custom_css_${currentChatId}`);
+if (!savedCss) savedCss = localStorage.getItem(`oc_phone_chat_custom_css_${currentChatId}`) || '';
         const cssInput = document.getElementById('chat-custom-css-input');
         if (cssInput) cssInput.value = savedCss;
         
@@ -12843,16 +12845,14 @@ window.applyChatMenu = function(isVisible) {
     }
 };
 
-// 4. 自定义气泡 CSS
+// ================= 新版：大容量数据库气泡管理系统 =================
 window.applyChatCustomCSS = async function() {
     const cssText = document.getElementById('chat-custom-css-input').value;
-    // 魔法：原封不动保留原代码给真实聊天室，并在底下再复制一份专属给预览区！
     const autoPreviewCss = cssText + "\n" + cssText.replace(/#chat-messages-container/g, '#chat-css-preview');
     document.getElementById('chat-custom-style-tag').innerHTML = autoPreviewCss;
     
     if(currentChatId) {
-        // 同步保存到两个存储，防止被旧数据反向覆盖
-        localStorage.setItem(`oc_phone_chat_custom_css_${currentChatId}`, cssText);
+        // 直接存入无限容量数据库，摒弃 localStorage
         if (typeof window.saveToDB === 'function') {
             await window.saveToDB(`oc_phone_chat_custom_css_${currentChatId}`, cssText);
         }
@@ -12864,7 +12864,6 @@ window.clearChatCustomCSS = async function() {
     document.getElementById('chat-custom-style-tag').innerHTML = '';
     
     if(currentChatId) {
-        // 同步从双端彻底清除
         localStorage.removeItem(`oc_phone_chat_custom_css_${currentChatId}`);
         if (typeof window.saveToDB === 'function') {
             await window.saveToDB(`oc_phone_chat_custom_css_${currentChatId}`, null);
@@ -12873,9 +12872,21 @@ window.clearChatCustomCSS = async function() {
     window.showToast('气泡CSS已清空');
 };
 
-// === 新增：气泡 CSS 预设管理系统 ===
-window.renderChatCssPresets = function() {
-    const presets = JSON.parse(localStorage.getItem('oc_phone_chat_css_presets') || '[]');
+// === 预设系统彻底搬入数据库 (自带自动搬家功能) ===
+window.renderChatCssPresets = async function() {
+    // 1. 从数据库读
+    let presets = (await window.getFromDB('oc_phone_chat_css_presets')) || [];
+    
+    // 2. 自动搬家：如果数据库空，去老缓存里找，有的话搬过来并清空老缓存腾空间
+    if (presets.length === 0) {
+        const oldPresets = JSON.parse(localStorage.getItem('oc_phone_chat_css_presets') || '[]');
+        if (oldPresets.length > 0) {
+            presets = oldPresets;
+            await window.saveToDB('oc_phone_chat_css_presets', presets); 
+            localStorage.removeItem('oc_phone_chat_css_presets'); 
+        }
+    }
+
     const select = document.getElementById('chat-css-preset-select');
     if(!select) return;
     select.innerHTML = '<option value="">选择预设...</option>';
@@ -12887,7 +12898,7 @@ window.renderChatCssPresets = function() {
     });
 };
 
-window.saveChatCssPreset = function() {
+window.saveChatCssPreset = async function() {
     const cssText = document.getElementById('chat-custom-css-input').value.trim();
     if(!cssText) {
         window.showToast('当前CSS为空，无法保存');
@@ -12896,45 +12907,46 @@ window.saveChatCssPreset = function() {
     const name = prompt('请输入气泡预设名称 (同名将自动覆盖):');
     if(!name) return;
 
-    let presets = JSON.parse(localStorage.getItem('oc_phone_chat_css_presets') || '[]');
+    let presets = (await window.getFromDB('oc_phone_chat_css_presets')) || [];
     const index = presets.findIndex(p => p.name === name);
     if(index > -1) {
         presets[index].css = cssText;
     } else {
         presets.push({name: name, css: cssText});
     }
-    localStorage.setItem('oc_phone_chat_css_presets', JSON.stringify(presets));
+    
+    await window.saveToDB('oc_phone_chat_css_presets', presets);
     window.showToast(`预设 [${name}] 已保存`);
-    window.renderChatCssPresets();
+    await window.renderChatCssPresets();
     document.getElementById('chat-css-preset-select').value = name;
 };
 
-window.loadChatCssPreset = function() {
+window.loadChatCssPreset = async function() {
     const select = document.getElementById('chat-css-preset-select');
     const name = select.value;
     if(!name) return;
 
-    // 巧妙利用系统原生的 Confirm 弹窗实现选择与删除
     if(confirm(`应用预设: [${name}]\n\n点击【确定】应用到当前聊天。\n点击【取消】则是删除该预设。`)) {
-        const presets = JSON.parse(localStorage.getItem('oc_phone_chat_css_presets') || '[]');
+        const presets = (await window.getFromDB('oc_phone_chat_css_presets')) || [];
         const preset = presets.find(p => p.name === name);
         if(preset) {
             document.getElementById('chat-custom-css-input').value = preset.css;
-            window.applyChatCustomCSS();
+            await window.applyChatCustomCSS();
             window.showToast(`已应用预设: ${name}`);
         }
     } else {
         if(confirm(`⚠️ 确定要彻底删除预设 [${name}] 吗？`)) {
-            let presets = JSON.parse(localStorage.getItem('oc_phone_chat_css_presets') || '[]');
+            let presets = (await window.getFromDB('oc_phone_chat_css_presets')) || [];
             presets = presets.filter(p => p.name !== name);
-            localStorage.setItem('oc_phone_chat_css_presets', JSON.stringify(presets));
+            await window.saveToDB('oc_phone_chat_css_presets', presets);
             window.showToast('预设已删除');
-            window.renderChatCssPresets();
+            await window.renderChatCssPresets();
         } else {
-            select.value = ""; // 取消删除则恢复下拉框初始状态
+            select.value = ""; 
         }
     }
 };
+// ================= 新版结束 =================
 
 // 监听聊天区点击，展开翻译
 document.addEventListener('click', function(e) {
