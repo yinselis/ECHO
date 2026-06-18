@@ -13735,11 +13735,31 @@ window.loadMoreChatMessages = async function() {
 };
 
 // ==========================================
-// 表情包核心调度系统
+// 表情包核心调度系统 (大容量 IndexedDB 引擎版)
 // ==========================================
 
+// 全局缓存，防止聊天气泡正则替换时被异步卡死
+window.globalStickerCache = [];
+
+// 系统启动时，自动从数据库读取，并执行老缓存搬家清理
+setTimeout(async () => {
+    let dbGroups = await window.getFromDB('oc_phone_sticker_groups');
+    if (!dbGroups || dbGroups.length === 0) {
+        let oldGroups = JSON.parse(localStorage.getItem('oc_phone_sticker_groups') || '[]');
+        if (oldGroups.length > 0) {
+            await window.saveToDB('oc_phone_sticker_groups', oldGroups);
+            window.globalStickerCache = oldGroups;
+            localStorage.removeItem('oc_phone_sticker_groups'); // 清理5MB老空间
+        } else {
+            window.globalStickerCache = [];
+        }
+    } else {
+        window.globalStickerCache = dbGroups;
+    }
+}, 500);
+
 // 初始化 / 展开收起表情包面板
-window.toggleChatStickerMenu = function() {
+window.toggleChatStickerMenu = async function() {
     const stickerMenu = document.getElementById('chat-sticker-menu');
     const extraMenu = document.getElementById('chat-extra-menu');
     const container = document.getElementById('chat-messages-container');
@@ -13749,6 +13769,8 @@ window.toggleChatStickerMenu = function() {
     }
 
     if(stickerMenu.classList.contains('hidden')) {
+        // 打开时强制同步最新数据库
+        window.globalStickerCache = (await window.getFromDB('oc_phone_sticker_groups')) || [];
         stickerMenu.classList.remove('hidden');
         window.renderStickerTabs();
         setTimeout(() => { if (container) container.scrollTop = container.scrollHeight; }, 50);
@@ -13760,7 +13782,7 @@ window.toggleChatStickerMenu = function() {
 
 // 渲染底部分组 Tabs
 window.renderStickerTabs = function() {
-    const groups = JSON.parse(localStorage.getItem('oc_phone_sticker_groups') || '[]');
+    const groups = window.globalStickerCache;
     const tabContainer = document.getElementById('sticker-tabs-container');
     tabContainer.innerHTML = '';
     
@@ -13770,7 +13792,6 @@ window.renderStickerTabs = function() {
     }
 
     let activeGroupId = localStorage.getItem('oc_phone_active_sticker_group') || groups[0].id;
-    // 如果记录的被删了，默认回第一个
     if(!groups.find(g => g.id === activeGroupId)) activeGroupId = groups[0].id;
 
     groups.forEach(g => {
@@ -13781,7 +13802,7 @@ window.renderStickerTabs = function() {
         btn.innerText = g.name;
         btn.onclick = () => {
             localStorage.setItem('oc_phone_active_sticker_group', g.id);
-            window.renderStickerTabs(); // 刷新高亮
+            window.renderStickerTabs(); 
         };
         tabContainer.appendChild(btn);
     });
@@ -13791,7 +13812,7 @@ window.renderStickerTabs = function() {
 
 // 渲染 4x2 网格区
 window.renderStickerGrid = function(groupId) {
-    const groups = JSON.parse(localStorage.getItem('oc_phone_sticker_groups') || '[]');
+    const groups = window.globalStickerCache;
     const group = groups.find(g => g.id === groupId);
     const grid = document.getElementById('sticker-grid-container');
     grid.innerHTML = '';
@@ -13816,13 +13837,13 @@ window.renderStickerGrid = function(groupId) {
 window.sendChatSticker = function(name) {
     if(typeof sendChatMessage === 'function') {
         sendChatMessage(`[表情包:${name}]`);
-        window.toggleChatStickerMenu(); // 发完自动收起
+        window.toggleChatStickerMenu(); 
     }
 };
 
 // 获取给AI用的表情包名单
 window.getAiAllowedStickers = function() {
-    const groups = JSON.parse(localStorage.getItem('oc_phone_sticker_groups') || '[]');
+    const groups = window.globalStickerCache;
     let allowed = [];
     groups.forEach(g => {
         if(g.aiAuth) g.stickers.forEach(s => allowed.push(s.name));
@@ -13832,7 +13853,7 @@ window.getAiAllowedStickers = function() {
 
 // 渲染时正则提取用的查找函数
 window.findStickerUrl = function(name) {
-    const groups = JSON.parse(localStorage.getItem('oc_phone_sticker_groups') || '[]');
+    const groups = window.globalStickerCache;
     for (let g of groups) {
         for (let s of g.stickers) {
             if (s.name === name) return s.url;
@@ -13842,7 +13863,7 @@ window.findStickerUrl = function(name) {
 };
 
 // ==========================================
-// 管理面板逻辑
+// 大容量管理面板逻辑
 // ==========================================
 window.openStickerManager = function() {
     const modal = document.getElementById('sticker-manager-modal');
@@ -13850,25 +13871,34 @@ window.openStickerManager = function() {
     window.refreshStickerManagerList();
 };
 
-window.saveStickerGroup = function() {
+// 异步大容量保存
+window.saveStickerGroup = async function() {
     const nameInput = document.getElementById('sticker-group-name').value.trim();
     const dataInput = document.getElementById('sticker-import-data').value.trim();
     const aiAuth = document.getElementById('sticker-ai-auth').checked;
     
-    if(!nameInput || !dataInput) { alert("名称和导入数据不能为空！"); return; }
+    if(!nameInput || !dataInput) { window.showToast("名称和导入数据不能为空！"); return; }
 
     const lines = dataInput.split('\n');
     let stickers = [];
-    lines.forEach(line => {
-        const parts = line.split(/[:：](https?:\/\/.*)/); // 兼容直链
-        if(parts.length >= 2) {
-            stickers.push({ name: parts[0].trim(), url: parts[1].trim() });
+    lines.forEach((line, index) => {
+        const parts = line.split(/[:：](https?:\/\/.*)/); 
+        if(parts.length >= 2 && parts[1].trim()) {
+            const sName = parts[0].trim() || `表情${index + 1}`;
+            stickers.push({ name: sName, url: parts[1].trim() });
+        } else {
+            // 防呆设计：全是纯链接也会自动提取并编号
+            const urlMatch = line.match(/(https?:\/\/[^\s]+)/);
+            if (urlMatch) {
+                stickers.push({ name: `表情${index + 1}`, url: urlMatch[1].trim() });
+            }
         }
     });
 
-    if(stickers.length === 0) { alert("未解析到任何有效表情，请检查格式！"); return; }
+    if(stickers.length === 0) { window.showToast("未解析到任何有效表情，请检查格式！"); return; }
 
-    let groups = JSON.parse(localStorage.getItem('oc_phone_sticker_groups') || '[]');
+    // 存入大容量 IndexedDB
+    let groups = (await window.getFromDB('oc_phone_sticker_groups')) || [];
     let existIndex = groups.findIndex(g => g.name === nameInput);
     
     const newGroup = { id: 'sg_' + Date.now(), name: nameInput, aiAuth: aiAuth, stickers: stickers };
@@ -13876,32 +13906,43 @@ window.saveStickerGroup = function() {
     if(existIndex > -1) { groups[existIndex] = newGroup; } // 同名覆盖
     else { groups.push(newGroup); }
 
-    localStorage.setItem('oc_phone_sticker_groups', JSON.stringify(groups));
+    await window.saveToDB('oc_phone_sticker_groups', groups);
+    window.globalStickerCache = groups; // 同步缓存
     
     document.getElementById('sticker-group-name').value = '';
     document.getElementById('sticker-import-data').value = '';
-    window.showToast(`成功保存分组 [${nameInput}]，包含 ${stickers.length} 个表情`);
+    window.showToast(`成功保存 [${nameInput}]，共导入 ${stickers.length} 个表情`);
     
     window.refreshStickerManagerList();
     window.renderStickerTabs();
 };
 
 window.deleteStickerGroup = function(id) {
-    if(!confirm("确认删除该分组？")) return;
-    let groups = JSON.parse(localStorage.getItem('oc_phone_sticker_groups') || '[]');
-    groups = groups.filter(g => g.id !== id);
-    localStorage.setItem('oc_phone_sticker_groups', JSON.stringify(groups));
-    window.refreshStickerManagerList();
-    window.renderStickerTabs();
+    window.showEchoConfirmDialog(
+        '删除表情分组',
+        '确定要彻底删除这个表情包分组吗？',
+        '确认删除',
+        async () => {
+            let groups = (await window.getFromDB('oc_phone_sticker_groups')) || [];
+            groups = groups.filter(g => g.id !== id);
+            await window.saveToDB('oc_phone_sticker_groups', groups);
+            window.globalStickerCache = groups; // 同步缓存
+            
+            window.refreshStickerManagerList();
+            window.renderStickerTabs();
+            window.showToast('分组已删除');
+        }
+    );
 };
 
-window.refreshStickerManagerList = function() {
-    const groups = JSON.parse(localStorage.getItem('oc_phone_sticker_groups') || '[]');
+window.refreshStickerManagerList = async function() {
+    window.globalStickerCache = (await window.getFromDB('oc_phone_sticker_groups')) || [];
+    const groups = window.globalStickerCache;
     const list = document.getElementById('sticker-group-list');
     list.innerHTML = '';
+    
     groups.forEach(g => {
         const el = document.createElement('div');
-        // 极简紧凑排版，高度变窄
         el.className = "flex justify-between items-center bg-black/5 px-2 py-1.5 mb-1.5 rounded border border-solid";
         el.style.borderColor = "var(--ink-light)";
         el.innerHTML = `
@@ -13910,12 +13951,10 @@ window.refreshStickerManagerList = function() {
                 <span class="opacity-50 text-[9px] ml-1 shrink-0">(${g.stickers.length}图)</span>
             </div>
             <div class="flex items-center space-x-3 shrink-0">
-                <!-- 直接在这里开关 AI 权限 -->
                 <label class="flex items-center space-x-1 cursor-pointer">
                     <span class="text-[9px] opacity-60 font-bold">AI可用</span>
                     <input type="checkbox" class="w-3.5 h-3.5 accent-[var(--ink)]" ${g.aiAuth ? 'checked' : ''} onchange="window.toggleStickerAiAuth('${g.id}', this.checked)">
                 </label>
-                <!-- 小巧的删除按钮 -->
                 <button onclick="window.deleteStickerGroup('${g.id}')" class="text-red-500 font-bold text-[10px] px-1.5 py-0.5 bg-red-100/50 rounded border border-red-200 active:scale-95">删除</button>
             </div>
         `;
@@ -13923,13 +13962,13 @@ window.refreshStickerManagerList = function() {
     });
 };
 
-// 新增：直接动态开关某组表情的 AI 使用权
-window.toggleStickerAiAuth = function(id, isChecked) {
-    let groups = JSON.parse(localStorage.getItem('oc_phone_sticker_groups') || '[]');
+window.toggleStickerAiAuth = async function(id, isChecked) {
+    let groups = (await window.getFromDB('oc_phone_sticker_groups')) || [];
     let group = groups.find(g => g.id === id);
     if(group) {
         group.aiAuth = isChecked;
-        localStorage.setItem('oc_phone_sticker_groups', JSON.stringify(groups));
+        await window.saveToDB('oc_phone_sticker_groups', groups);
+        window.globalStickerCache = groups;
     }
 };
 
