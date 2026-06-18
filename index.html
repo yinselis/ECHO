@@ -10556,8 +10556,29 @@ const replyLimit = localStorage.getItem('oc_phone_chat_reply_limit_' + currentCh
 const enableInnerVoice = localStorage.getItem('oc_phone_chat_inner_voice_' + currentChatId) === 'true';
 const innerVoicePrompt = localStorage.getItem('oc_phone_chat_inner_voice_prompt_' + currentChatId) || '';
 
+// ====== 【新增：提取并分类全局指令】 ======
+        const savedWIs = JSON.parse(localStorage.getItem('oc_phone_chat_wis_' + currentChatId) || '[]');
+        let wiSystemBefore = [];
+        let wiSystemAfter = [];
+        let wiChatAfter = []; // 史后指令（发给大模型的最末尾，强制力最高）
+        if (savedWIs.length > 0) {
+            const worldInfos = (await window.getFromDB('oc_phone_world_info')) || [];
+            savedWIs.forEach(wiId => {
+                const wi = worldInfos.find(w => w.id === wiId);
+                if (wi) {
+                    if (wi.position === 'system_before') wiSystemBefore.push(wi.content);
+                    else if (wi.position === 'chat_after') wiChatAfter.push(wi.content);
+                    else wiSystemAfter.push(wi.content); // 史前、后置、深度3 暂时统合放到系统提示词末尾
+                }
+            });
+        }
+
 // 1. 基础系统提示与对方(AI)设定
-        let sysPrompt = `You are a real human: ${char ? char.name : 'Unknown'}. Forget you are an AI.
+        let sysPrompt = ``;
+        if (wiSystemBefore.length > 0) {
+            sysPrompt += `[Global Instructions]:\n${wiSystemBefore.join('\n')}\n\n`;
+        }
+        sysPrompt += `You are a real human: ${char ? char.name : 'Unknown'}. Forget you are an AI.
 [Your Profile]: ${char ? char.prompt : ''}`;
 if (isBlocked) {
     sysPrompt += `\n\n[SYSTEM FATAL ALERT]: 你当前已被用户【拉黑(BLOCKED)】！通讯通道已关闭！你只能发送一条简短的验证/好友请求消息。`;
@@ -10677,18 +10698,9 @@ if (activeMems.length > 0) {
     sysPrompt += `\n\n[Long-term Memory (Past Summaries)]:\n` + activeMems.map(m => m.content).join('\n');
 }
 
-        // 6. 注入全局指令
-        const savedWIs = JSON.parse(localStorage.getItem('oc_phone_chat_wis_' + currentChatId) || '[]');
-        if (savedWIs.length > 0) {
-            const worldInfos = (await window.getFromDB('oc_phone_world_info')) || [];
-            let wiTexts = [];
-            savedWIs.forEach(wiId => {
-                const wi = worldInfos.find(w => w.id === wiId);
-                if (wi) wiTexts.push(wi.content);
-            });
-            if (wiTexts.length > 0) {
-                sysPrompt += `\n\n[World Rules]:\n` + wiTexts.join('\n');
-            }
+        // 6. 注入全局指令 (后置部分)
+        if (typeof wiSystemAfter !== 'undefined' && wiSystemAfter.length > 0) {
+            sysPrompt += `\n\n[World Rules]:\n` + wiSystemAfter.join('\n');
         }
 // 读取上下文条数设置（默认15）
 let contextLimit = parseInt(localStorage.getItem('oc_phone_chat_context_' + currentChatId));
@@ -10744,6 +10756,11 @@ recentMsgs.forEach(m => {
     }
 });
 
+// ====== 【新增：注入史后指令 (发给大模型的最末尾)】 ======
+        if (typeof wiChatAfter !== 'undefined' && wiChatAfter.length > 0) {
+            apiMessages.push({ role: 'system', content: `[Immediate Rules]:\n` + wiChatAfter.join('\n') });
+        }
+        
         const response = await fetch(`${apiUrl}/v1/chat/completions`, {
             method: 'POST',
             headers: {
@@ -16151,12 +16168,16 @@ if (typeof window.getAiAllowedStickers === 'function') {
 
 // 3. 世界书/全局指令 (World Info)
 const savedWIs = JSON.parse(localStorage.getItem('oc_phone_chat_wis_' + groupId) || '[]');
+let wiChatAfter = []; // 群聊史后指令
 if (savedWIs.length > 0) {
     const worldInfos = (await window.getFromDB('oc_phone_world_info')) || [];
     let wiTexts = [];
     savedWIs.forEach(wiId => {
         const wi = worldInfos.find(w => w.id === wiId);
-        if (wi) wiTexts.push(wi.content);
+        if (wi) {
+            if (wi.position === 'chat_after') wiChatAfter.push(wi.content);
+            else wiTexts.push(wi.content);
+        }
     });
     if (wiTexts.length > 0) {
         sysPrompt += `\n\n【World Rules (Global Directives)】:\n` + wiTexts.join('\n');
@@ -16226,11 +16247,17 @@ if (currentTextChunk.length > 0) {
 let finalPayloadContent = hasImageInContext ? userContentArray : userContentArray[0].text;
 // ============================================
 
+// ====== 【新增：组装群聊消息并注入史后指令】 ======
+let apiMessages = [{ role: "system", content: sysPrompt }, { role: "user", content: finalPayloadContent }];
+if (typeof wiChatAfter !== 'undefined' && wiChatAfter.length > 0) {
+    apiMessages.push({ role: 'system', content: `[Immediate Rules]:\n` + wiChatAfter.join('\n') });
+}
+
 try {
     const response = await fetch(`${apiUrl}/v1/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: model, messages: [{ role: "system", content: sysPrompt }, { role: "user", content: finalPayloadContent }], temperature: parseFloat(localStorage.getItem('oc_phone_temperature')) || 0.7 })
+        body: JSON.stringify({ model: model, messages: apiMessages, temperature: parseFloat(localStorage.getItem('oc_phone_temperature')) || 0.7 })
     });
 
         if (!response.ok) {
