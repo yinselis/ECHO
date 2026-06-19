@@ -13007,26 +13007,40 @@ const originalOpenChatSettingsModal = window.openChatSettingsModal;
 window.openChatSettingsModal = async function() {
     await originalOpenChatSettingsModal();
     if (currentChatId) {
-        document.getElementById('chat-setting-bilingual').checked = localStorage.getItem('oc_phone_chat_bilingual_' + currentChatId) === 'true';
-        document.getElementById('chat-setting-reply-limit').value = localStorage.getItem('oc_phone_chat_reply_limit_' + currentChatId) || '';
-        document.getElementById('chat-setting-context').value = localStorage.getItem('oc_phone_chat_context_' + currentChatId) || '15';
+        const bilingual = document.getElementById('chat-setting-bilingual');
+        if (bilingual) bilingual.checked = localStorage.getItem('oc_phone_chat_bilingual_' + currentChatId) === 'true';
+        
+        const limit = document.getElementById('chat-setting-reply-limit');
+        if (limit) limit.value = localStorage.getItem('oc_phone_chat_reply_limit_' + currentChatId) || '';
+        
+        const ctx = document.getElementById('chat-setting-context');
+        if (ctx) ctx.value = localStorage.getItem('oc_phone_chat_context_' + currentChatId) || '15';
     }
 };
-
 window.saveChatLimits = function() {
     if (!currentChatId) return;
-    localStorage.setItem('oc_phone_chat_bilingual_' + currentChatId, document.getElementById('chat-setting-bilingual').checked);
-    localStorage.setItem('oc_phone_chat_reply_limit_' + currentChatId, document.getElementById('chat-setting-reply-limit').value.trim());
-    localStorage.setItem('oc_phone_chat_context_' + currentChatId, document.getElementById('chat-setting-context').value.trim());
-    
-    // 保存心声开关和要求
-    localStorage.setItem('oc_phone_chat_inner_voice_' + currentChatId, document.getElementById('chat-inner-voice-toggle').checked);
-    localStorage.setItem('oc_phone_chat_inner_voice_prompt_' + currentChatId, document.getElementById('chat-inner-voice-prompt')?.value.trim() || '');
 
-    // 【新增】保存聊天自动总结的开关和条数
-    localStorage.setItem('oc_phone_chat_auto_summary_' + currentChatId, document.getElementById('chat-auto-summary-toggle').checked);
-    localStorage.setItem('oc_phone_chat_auto_turns_' + currentChatId, document.getElementById('chat-auto-summary-turns').value.trim() || '30');
-    
+    const bilingual = document.getElementById('chat-setting-bilingual');
+    if (bilingual) localStorage.setItem('oc_phone_chat_bilingual_' + currentChatId, bilingual.checked);
+
+    const limit = document.getElementById('chat-setting-reply-limit');
+    if (limit) localStorage.setItem('oc_phone_chat_reply_limit_' + currentChatId, limit.value.trim());
+
+    const context = document.getElementById('chat-setting-context');
+    if (context) localStorage.setItem('oc_phone_chat_context_' + currentChatId, context.value.trim());
+
+    const ivToggle = document.getElementById('chat-inner-voice-toggle');
+    if (ivToggle) localStorage.setItem('oc_phone_chat_inner_voice_' + currentChatId, ivToggle.checked);
+
+    const ivPrompt = document.getElementById('chat-inner-voice-prompt');
+    if (ivPrompt) localStorage.setItem('oc_phone_chat_inner_voice_prompt_' + currentChatId, ivPrompt.value.trim());
+
+    const autoSummary = document.getElementById('chat-auto-summary-toggle');
+    if (autoSummary) localStorage.setItem('oc_phone_chat_auto_summary_' + currentChatId, autoSummary.checked);
+
+    const autoTurns = document.getElementById('chat-auto-summary-turns');
+    if (autoTurns) localStorage.setItem('oc_phone_chat_auto_turns_' + currentChatId, autoTurns.value.trim());
+
     window.showToast('高级设定已同步至大脑');
 };
 
@@ -13035,31 +13049,29 @@ const originalOpenChatSettingsModal2 = window.openChatSettingsModal;
 window.openChatSettingsModal = async function() {
     await originalOpenChatSettingsModal2();
     if (currentChatId) {
-        document.getElementById('chat-setting-bilingual').checked = localStorage.getItem('oc_phone_chat_bilingual_' + currentChatId) === 'true';
-        document.getElementById('chat-setting-reply-limit').value = localStorage.getItem('oc_phone_chat_reply_limit_' + currentChatId) || '';
-        document.getElementById('chat-setting-context').value = localStorage.getItem('oc_phone_chat_context_' + currentChatId) || '15';
+        const bilingual = document.getElementById('chat-setting-bilingual');
+        if (bilingual) bilingual.checked = localStorage.getItem('oc_phone_chat_bilingual_' + currentChatId) === 'true';
         
-        // 读取心声
+        const limit = document.getElementById('chat-setting-reply-limit');
+        if (limit) limit.value = localStorage.getItem('oc_phone_chat_reply_limit_' + currentChatId) || '';
+        
+        const ctx = document.getElementById('chat-setting-context');
+        if (ctx) ctx.value = localStorage.getItem('oc_phone_chat_context_' + currentChatId) || '15';
+        
         const ivToggle = document.getElementById('chat-inner-voice-toggle');
         const ivPrompt = document.getElementById('chat-inner-voice-prompt');
-        if(ivToggle) {
+        if (ivToggle) {
             ivToggle.checked = localStorage.getItem('oc_phone_chat_inner_voice_' + currentChatId) === 'true';
-            
-            // 如果是群聊，隐藏心声
             const ivContainer = ivToggle.closest('.p-3.bg-black\\/5.border-dashed');
-            if (ivContainer) {
-                ivContainer.style.display = window.isGroupChatting ? 'none' : 'flex';
-            }
+            if (ivContainer) ivContainer.style.display = window.isGroupChatting ? 'none' : 'flex';
         }
-        if(ivPrompt) ivPrompt.value = localStorage.getItem('oc_phone_chat_inner_voice_prompt_' + currentChatId) || '';
+        if (ivPrompt) ivPrompt.value = localStorage.getItem('oc_phone_chat_inner_voice_prompt_' + currentChatId) || '';
 
-        // 【新增】读取并回显自动总结开关与条数
         const summaryToggle = document.getElementById('chat-auto-summary-toggle');
         const summaryTurns = document.getElementById('chat-auto-summary-turns');
         if (summaryToggle) summaryToggle.checked = localStorage.getItem('oc_phone_chat_auto_summary_' + currentChatId) === 'true';
         if (summaryTurns) summaryTurns.value = localStorage.getItem('oc_phone_chat_auto_turns_' + currentChatId) || '30';
         
-        // 动态切换底部的红字按钮
         const blockBtn = document.getElementById('btn-chat-block');
         const deleteBtn = document.getElementById('btn-chat-delete');
         if (blockBtn && deleteBtn) {
@@ -13634,19 +13646,21 @@ window.saveChatMemorySettings = function() {
     const useSub = document.getElementById('chat-mem-use-sub')?.checked || false;
     const customPrompt = document.getElementById('chat-mem-custom-prompt')?.value || '';
     const customPromptGlobal = document.getElementById('chat-mem-custom-prompt-global')?.value || '';
-    
-    // 【新增】：抓取开关和条数的值
-    const autoSummary = document.getElementById('chat-mem-auto-summary')?.checked || false;
-    const autoTurns = document.getElementById('chat-mem-auto-turns')?.value || '30';
-    
+
     localStorage.setItem('oc_phone_chat_mem_sub_' + currentChatId, useSub);
     localStorage.setItem('oc_phone_chat_mem_prompt_' + currentChatId, customPrompt.trim());
     localStorage.setItem('oc_phone_chat_mem_prompt_global_' + currentChatId, customPromptGlobal.trim());
-    
-    // 【新增】：把它们存入手机数据库
-    localStorage.setItem('oc_phone_chat_auto_summary_' + currentChatId, autoSummary);
-    localStorage.setItem('oc_phone_chat_auto_turns_' + currentChatId, autoTurns);
-    
+
+    // 核心修复：只有当记忆面板里真的存在自动总结开关时，才去保存它，防止强行覆盖原设置
+    const summaryEl = document.getElementById('chat-mem-auto-summary');
+    if (summaryEl) {
+        localStorage.setItem('oc_phone_chat_auto_summary_' + currentChatId, summaryEl.checked);
+    }
+    const turnsEl = document.getElementById('chat-mem-auto-turns');
+    if (turnsEl) {
+        localStorage.setItem('oc_phone_chat_auto_turns_' + currentChatId, turnsEl.value || '30');
+    }
+
     window.showToast('记忆引擎设定已保存');
 };
 
