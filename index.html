@@ -10766,7 +10766,7 @@ recentMsgs.forEach(m => {
             apiMessages.push({ role: 'system', content: `[Immediate Rules]:\n` + wiChatAfter.join('\n') });
         }
         
-        const response = await fetch(`${apiUrl}/v1/chat/completions`, {
+        const response = await fetch(`${apiUrl}/chat/completions`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -13243,7 +13243,7 @@ let model = useSub ? (localStorage.getItem('oc_sub_model') || localStorage.getIt
     if (!url || !key || !model) throw new Error(useSub ? "副 API 未配置完整，请前往设置检查" : "主 API 未配置完整，请前往设置检查");
     if (url.endsWith('/')) url = url.slice(0, -1);
     
-    const response = await fetch(`${url}/v1/chat/completions`, {
+    const response = await fetch(`${url}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
         body: JSON.stringify({
@@ -15553,7 +15553,7 @@ CRITICAL: ONLY use [译: xxx] tags! NEVER use round brackets like (xxx) or （xx
     });
 
     try {
-        const response = await fetch(`${apiUrl}/v1/chat/completions`, {
+        const response = await fetch(`${apiUrl}/chat/completions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
             body: JSON.stringify({ model: model, messages: apiMessages, temperature: 0.8 })
@@ -16259,7 +16259,7 @@ if (typeof wiChatAfter !== 'undefined' && wiChatAfter.length > 0) {
 }
 
 try {
-    const response = await fetch(`${apiUrl}/v1/chat/completions`, {
+    const response = await fetch(`${apiUrl}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
         body: JSON.stringify({ model: model, messages: apiMessages, temperature: parseFloat(localStorage.getItem('oc_phone_temperature')) || 0.7 })
@@ -20579,7 +20579,7 @@ async function fetchAPIModels() {
     try {
         const baseUrl = apiUrl.endsWith('/') ? apiUrl.slice(0, -1) : apiUrl;
         
-        const response = await fetch(`${baseUrl}/v1/models`, {
+        const response = await fetch(`${baseUrl}/models`, {
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
@@ -20688,7 +20688,7 @@ window.fetchSubAPIModels = async function() {
     const btn = document.getElementById('btn-fetch-sub-models');
     btn.innerText = "拉取中...";
     try {
-        const res = await fetch(url + '/v1/models', {
+        const res = await fetch(url + '/models', {
             headers: { 'Authorization': `Bearer ${key}` }
         });
         const data = await res.json();
@@ -20792,14 +20792,10 @@ document.addEventListener('click', function initKeepAlive() {
 // 🚨 精准清理：只删壁纸和无效缓存，绝对保留头像和预设
 // ==========================================
 window.deepCleanJunkData = async function() {
-    if (!confirm("⚠️ 确定要清理废弃壁纸和缓存吗？\n\n此操作会清除：\n1. 全局自定义壁纸\n2. 各个聊天室的独立背景图\n3. 自定义的独立图标\n\n(放心，你的头像、气泡预设、聊天记录、主题设置绝对安全！)赚")) return;
+    if (!confirm("⚠️ 确定要清理废弃桌面元素吗？\n\n此操作仅会清除：\n1. 全局自定义壁纸\n2. 小组件旧图片\n3. 自定义APP图标\n\n(你的聊天背景、所有设置、聊天记录绝对安全！)")) return;
 
     let deletedCount = 0;
     
-    // 1. 删除全局辅助数据库（一些额外的美化组件数据）
-    indexedDB.deleteDatabase('AestheticDesktopDB'); 
-    
-    // 2. 遍历主数据库，精准猎杀那些占内存的图
     const req = indexedDB.open('OCPhoneDatabase', 1);
     req.onsuccess = (e) => {
         const db = e.target.result;
@@ -20812,9 +20808,8 @@ window.deepCleanJunkData = async function() {
             const cursor = ev.target.result;
             if (cursor) {
                 const key = cursor.key;
-                // 【绝杀名单】：自定义壁纸、聊天背景图、小组件照片、自定义APP图标
+                // 【严格名单】：只允许删这三个开头的废图
                 if (key === 'custom_wallpaper' || 
-                    key.startsWith('oc_phone_chat_bg_') || 
                     key.startsWith('photo_widget_bg') || 
                     key.startsWith('custom_icon_')) {
                     cursor.delete();
@@ -20822,7 +20817,7 @@ window.deepCleanJunkData = async function() {
                 }
                 cursor.continue();
             } else {
-                alert(`✅ 清理完成！共摧毁了 ${deletedCount} 个占用空间的废图。手机即将重启以释放内存。`);
+                alert(`✅ 清理完成！共为您清理了 ${deletedCount} 个无用文件。手机即将重启。`);
                 location.reload();
             }
         };
