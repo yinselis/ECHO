@@ -913,12 +913,14 @@ body, html {
                 <h3 class="font-bold text-base">数据管理与备份</h3>
                 <div class="flex flex-col space-y-3">
                     
-                    <!-- 👇 这行是你新加的“一键清理”按键 👇 -->
                     <button onclick="window.deepCleanJunkData()" class="sketch-box shape-2 px-4 py-3 font-bold w-full active:scale-95 transition-transform bg-orange-50 text-orange-700 border-solid text-sm tracking-widest" style="border-width: 1px; border-color: #f97316;">清理废弃壁纸与无用缓存</button>
-                    <!-- 👆 ---------------------------- 👆 -->
 
                     <button onclick="document.getElementById('export-options-modal').classList.remove('hidden')" class="sketch-box shape-1 px-4 py-3 font-bold w-full active:scale-95 transition-transform bg-white/80 border-solid text-sm tracking-widest" style="border-width: 1px; border-color: var(--ink);">导出数据备份</button>
+                    
+                    <!-- 👇 找回你丢失的导入按钮！ 👇 -->
+                    <button onclick="document.getElementById('import-data-input').click()" class="sketch-box shape-2 px-4 py-3 font-bold w-full active:scale-95 transition-transform bg-white/80 border-solid text-sm tracking-widest" style="border-width: 1px; border-color: var(--ink);">导入数据备份</button>
                     <input type="file" id="import-data-input" accept=".echo_backup, .json" class="hidden" onchange="window.importAllData(event)">
+                    <!-- 👆 ---------------------- 👆 -->
                     
                     <button onclick="window.confirmResetAllData()" class="sketch-box shape-3 px-4 py-3 font-bold w-full active:scale-95 transition-transform bg-red-50 text-red-600 border-solid text-sm tracking-widest" style="border-width: 1px; border-color: #ef4444;">清空重置所有数据</button>
                 </div>
