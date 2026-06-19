@@ -20908,47 +20908,52 @@ window.exportAllData = async function() {
 
         // 2. 遍历 IndexedDB
         const exportDB = async (dbName, storeName, version) => {
-            return new Promise((resolve) => {
+            // 第一步：先同步把所有数据抽出来，防止数据库通道自动关闭
+            const records = await new Promise((resolve) => {
                 const req = indexedDB.open(dbName, version);
                 req.onsuccess = (e) => {
                     const db = e.target.result;
-                    if (!db.objectStoreNames.contains(storeName)) { resolve(); return; }
+                    if (!db.objectStoreNames.contains(storeName)) { resolve([]); return; }
                     const tx = db.transaction(storeName, 'readonly');
                     const store = tx.objectStore(storeName);
                     const cursorReq = store.openCursor();
-                    
-                    cursorReq.onsuccess = async (ev) => {
+                    const items = [];
+                    cursorReq.onsuccess = (ev) => {
                         const cursor = ev.target.result;
                         if (cursor) {
-                            let val = cursor.value;
-                            // 图片压缩处理
-                            if (typeof val === 'string' && val.startsWith('data:image')) {
-                                val = await compressImageToBase64(val, qualitySetting);
-                            } else if (val instanceof Blob || val instanceof File) {
-                                const b64 = await compressImageToBase64(val, qualitySetting);
-                                val = { _isBlob: true, type: val.type, data: b64.split(',')[1] || b64 };
-                            }
-
-                            const itemObj = { db: dbName, store: storeName, key: cursor.key, value: val };
-                            const itemStr = JSON.stringify(itemObj) + "\n";
-                            
-                            // 核心防爆内存：一旦碎片超过 4MB，截断并开启新碎片
-                            if (currentSize + itemStr.length > CHUNK_LIMIT) {
-                                blobParts.push(currentChunkStr + SPLIT_TAG);
-                                currentChunkStr = "";
-                                currentSize = 0;
-                            }
-                            
-                            currentChunkStr += itemStr;
-                            currentSize += itemStr.length;
+                            items.push({ key: cursor.key, value: cursor.value });
                             cursor.continue();
                         } else {
-                            resolve();
+                            resolve(items);
                         }
                     };
                 };
-                req.onerror = () => resolve();
+                req.onerror = () => resolve([]);
             });
+
+            // 第二步：慢慢用 await 处理图片和切片
+            for (let i = 0; i < records.length; i++) {
+                let val = records[i].value;
+                let key = records[i].key;
+
+                if (typeof val === 'string' && val.startsWith('data:image')) {
+                    val = await compressImageToBase64(val, qualitySetting);
+                } else if (val instanceof Blob || val instanceof File) {
+                    const b64 = await compressImageToBase64(val, qualitySetting);
+                    val = { _isBlob: true, type: val.type, data: b64.split(',')[1] || b64 };
+                }
+
+                const itemObj = { db: dbName, store: storeName, key: key, value: val };
+                const itemStr = JSON.stringify(itemObj) + "\n";
+                
+                if (currentSize + itemStr.length > CHUNK_LIMIT) {
+                    blobParts.push(currentChunkStr + SPLIT_TAG);
+                    currentChunkStr = "";
+                    currentSize = 0;
+                }
+                currentChunkStr += itemStr;
+                currentSize += itemStr.length;
+            }
         };
 
         await exportDB('OCPhoneDatabase', 'WidgetData', 1);
