@@ -908,13 +908,16 @@ body, html {
                 </div>
             </div>
 
-            <!-- 【新增：数据管理与备份区块】 -->
+<!-- 【新增：数据管理与备份区块】 -->
             <div class="flex flex-col space-y-4 pt-6 border-t" style="border-color: var(--ink-light);">
                 <h3 class="font-bold text-base">数据管理与备份</h3>
                 <div class="flex flex-col space-y-3">
-                    <button onclick="document.getElementById('export-options-modal').classList.remove('hidden')" class="sketch-box shape-1 px-4 py-3 font-bold w-full active:scale-95 transition-transform bg-white/80 border-solid text-sm tracking-widest" style="border-width: 1px; border-color: var(--ink);">导出数据备份</button>
                     
-                    <button onclick="document.getElementById('import-data-input').click()" class="sketch-box shape-2 px-4 py-3 font-bold w-full active:scale-95 transition-transform bg-white/80 border-solid text-sm tracking-widest" style="border-width: 1px; border-color: var(--ink);">导入数据备份</button>
+                    <!-- 👇 这行是你新加的“一键清理”按键 👇 -->
+                    <button onclick="window.deepCleanJunkData()" class="sketch-box shape-2 px-4 py-3 font-bold w-full active:scale-95 transition-transform bg-orange-50 text-orange-700 border-solid text-sm tracking-widest" style="border-width: 1px; border-color: #f97316;">清理废弃壁纸与无用缓存</button>
+                    <!-- 👆 ---------------------------- 👆 -->
+
+                    <button onclick="document.getElementById('export-options-modal').classList.remove('hidden')" class="sketch-box shape-1 px-4 py-3 font-bold w-full active:scale-95 transition-transform bg-white/80 border-solid text-sm tracking-widest" style="border-width: 1px; border-color: var(--ink);">导出数据备份</button>
                     <input type="file" id="import-data-input" accept=".echo_backup, .json" class="hidden" onchange="window.importAllData(event)">
                     
                     <button onclick="window.confirmResetAllData()" class="sketch-box shape-3 px-4 py-3 font-bold w-full active:scale-95 transition-transform bg-red-50 text-red-600 border-solid text-sm tracking-widest" style="border-width: 1px; border-color: #ef4444;">清空重置所有数据</button>
@@ -20784,6 +20787,47 @@ document.addEventListener('click', function initKeepAlive() {
 }, { once: true });
 
 // ==========================================
+// 🚨 精准清理：只删壁纸和无效缓存，绝对保留头像和预设
+// ==========================================
+window.deepCleanJunkData = async function() {
+    if (!confirm("⚠️ 确定要清理废弃壁纸和缓存吗？\n\n此操作会清除：\n1. 全局自定义壁纸\n2. 各个聊天室的独立背景图\n3. 自定义的独立图标\n\n(放心，你的头像、气泡预设、聊天记录、主题设置绝对安全！)赚")) return;
+
+    let deletedCount = 0;
+    
+    // 1. 删除全局辅助数据库（一些额外的美化组件数据）
+    indexedDB.deleteDatabase('AestheticDesktopDB'); 
+    
+    // 2. 遍历主数据库，精准猎杀那些占内存的图
+    const req = indexedDB.open('OCPhoneDatabase', 1);
+    req.onsuccess = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('WidgetData')) return;
+        const tx = db.transaction('WidgetData', 'readwrite');
+        const store = tx.objectStore('WidgetData');
+        const cursorReq = store.openCursor();
+        
+        cursorReq.onsuccess = (ev) => {
+            const cursor = ev.target.result;
+            if (cursor) {
+                const key = cursor.key;
+                // 【绝杀名单】：自定义壁纸、聊天背景图、小组件照片、自定义APP图标
+                if (key === 'custom_wallpaper' || 
+                    key.startsWith('oc_phone_chat_bg_') || 
+                    key.startsWith('photo_widget_bg') || 
+                    key.startsWith('custom_icon_')) {
+                    cursor.delete();
+                    deletedCount++;
+                }
+                cursor.continue();
+            } else {
+                alert(`✅ 清理完成！共摧毁了 ${deletedCount} 个占用空间的废图。手机即将重启以释放内存。`);
+                location.reload();
+            }
+        };
+    };
+};
+
+// ==========================================
 // 全局数据管理 (终极流式备份、分块导入与防崩溃图片压缩)
 // ==========================================
 
@@ -20908,7 +20952,6 @@ window.exportAllData = async function() {
 
         // 2. 遍历 IndexedDB
         const exportDB = async (dbName, storeName, version) => {
-            // 第一步：先同步把所有数据抽出来，防止数据库通道自动关闭
             const records = await new Promise((resolve) => {
                 const req = indexedDB.open(dbName, version);
                 req.onsuccess = (e) => {
@@ -20931,16 +20974,37 @@ window.exportAllData = async function() {
                 req.onerror = () => resolve([]);
             });
 
-            // 第二步：慢慢用 await 处理图片和切片
             for (let i = 0; i < records.length; i++) {
                 let val = records[i].value;
                 let key = records[i].key;
 
+                // ==========================================
+                // 【核心拦截器】：导出时直接扔掉壁纸和无用大图！
+                // 你的头像(oc_phone_characters)、气泡预设 等绝对安全！
+                // ==========================================
+                if (key === 'custom_wallpaper' || 
+                    key.startsWith('oc_phone_chat_bg_') || 
+                    key.startsWith('photo_widget_bg') ||
+                    key.startsWith('custom_icon_')) {
+                    continue; // 遇到这些垃圾，直接跳过，绝不写进备份文件里！
+                }
+
                 if (typeof val === 'string' && val.startsWith('data:image')) {
                     val = await compressImageToBase64(val, qualitySetting);
                 } else if (val instanceof Blob || val instanceof File) {
-                    const b64 = await compressImageToBase64(val, qualitySetting);
-                    val = { _isBlob: true, type: val.type, data: b64.split(',')[1] || b64 };
+                    let b64 = await compressImageToBase64(val, qualitySetting);
+                    
+                    // 【原图防爆补丁】：原图转文本防卡死
+                    if (b64 instanceof Blob || b64 instanceof File) {
+                        b64 = await new Promise(res => {
+                            const reader = new FileReader();
+                            reader.onload = () => res(reader.result);
+                            reader.readAsDataURL(b64);
+                        });
+                    }
+                    if (typeof b64 === 'string') {
+                        val = { _isBlob: true, type: val.type, data: b64.split(',')[1] || b64 };
+                    }
                 }
 
                 const itemObj = { db: dbName, store: storeName, key: key, value: val };
