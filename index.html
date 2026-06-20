@@ -13603,18 +13603,38 @@ let chatText = sliceMsgs.map(m => {
             if (summary) {
                 let memories = (await window.getFromDB('oc_phone_chat_memories_' + charId)) || [];
                 memories.push({
-    id: Date.now().toString(),
-    content: summary,
-    isArchived: false,
-    timestamp: Date.now(),
-    startIndex: lastIndex,        // 【新增】：记录起点
-    endIndex: targetIndex         // 【新增】：记录终点
-});
-await window.saveToDB('oc_phone_chat_memories_' + charId, memories);
-localStorage.setItem('oc_phone_chat_last_summary_index_' + charId, targetIndex);
+                    id: Date.now().toString(),
+                    content: summary,
+                    isArchived: false,
+                    timestamp: Date.now(),
+                    startIndex: lastIndex,        
+                    endIndex: targetIndex         
+                });
+                await window.saveToDB('oc_phone_chat_memories_' + charId, memories);
+                localStorage.setItem('oc_phone_chat_last_summary_index_' + charId, targetIndex);
+                
+                // 【新增】：成功时的静默提示，让你知道它在默默干活
+                console.log(`[ECHO 系统] ${targetName} 的自动总结已成功完成！`);
             }
         } catch (e) {
             console.error("自动总结失败", e);
+            
+            // ========================================================
+            // 【新增：失败时的强势警报系统！】
+            // ========================================================
+            let errorMsg = e.message || "未知错误";
+            
+            // 1. 在网页上方弹出强力 Toast 警告
+            if (typeof window.showToast === 'function') {
+                window.showToast(` [系统警告] ${targetName} 自动总结失败！请检查 API！\n原因: ${errorMsg.substring(0, 30)}...`);
+            }
+            
+            // 2. 并且调用手机系统的下拉横幅通知（如果你切到了桌面也能收到）
+            if (typeof window.sendSystemNotification === 'function') {
+                window.sendSystemNotification("记忆引擎故障", `${targetName} 的自动总结失败，记录可能积压，请及时处理！原因: ${errorMsg}`, charId);
+            }
+            // ========================================================
+            
         } finally {
             window['is_summarizing_mem_' + charId] = false;
         }
