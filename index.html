@@ -13363,38 +13363,45 @@ const myName = meChar ? meChar.name : '用户';
     }
 };
 
-// 2. 手动提取近期未总结的对话 (新增 UI 交互)
-// 2. 手动提取近期未总结的对话 (新增书签丢失急救机制)
+// 2. 手动提取近期未总结的对话 (保留原版完美提示词 + 智能书签恢复)
 window.triggerManualSummary = async function() {
     if (!currentChatId) return;
-    
+
+    let lastIndex = parseInt(localStorage.getItem('oc_phone_chat_last_summary_index_' + currentChatId));
+    const messages = (await window.getFromDB('oc_phone_chat_' + currentChatId)) || [];
+
+    // ==================================================
+    // 【核心魔法：自动从旧记忆卡片中找回书签！】
+    // ==================================================
+    if (isNaN(lastIndex) || lastIndex === 0) {
+        let memories = (await window.getFromDB('oc_phone_chat_memories_' + currentChatId)) || [];
+        let maxIndex = 0;
+        memories.forEach(m => {
+            if (m.endIndex && m.endIndex > maxIndex) {
+                maxIndex = m.endIndex;
+            }
+        });
+        if (maxIndex > 0) {
+            lastIndex = maxIndex;
+            localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, maxIndex);
+            window.showToast('✅ 检测到缓存丢失，已从你的旧卡片中精准找回书签：第 ' + maxIndex + ' 条！请再次点击提取。');
+            return; 
+        } else {
+            lastIndex = 0;
+        }
+    }
+    // ==================================================
+
+    if (lastIndex > messages.length) {
+        lastIndex = 0;
+        localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, 0);
+    }
+
     const btn = document.getElementById('btn-manual-summary');
     const originalText = btn ? btn.innerText : '提取近期对话';
     
     try {
-        let lastIndex = parseInt(localStorage.getItem('oc_phone_chat_last_summary_index_' + currentChatId)) || 0;
-        const messages = (await window.getFromDB('oc_phone_chat_' + currentChatId)) || [];
-
-        // 【防呆补丁】：如果书签位置比现在的总消息还大，强行归零！
-        if (lastIndex > messages.length) {
-            lastIndex = 0;
-            localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, 0);
-        }
-
         const unsummarizedMsgs = messages.slice(lastIndex);
-
-        // ==================================================
-        // 【新增：书签丢失救援机制】
-        // ==================================================
-        if (unsummarizedMsgs.length > 60) {
-            if (confirm(`检测到有多达 ${unsummarizedMsgs.length} 条未总结的旧对话！\n这通常是因为缓存清理导致“记忆书签”归零。\n\n点击【确定】：跳过这些旧记录，把书签快进到最新位置（推荐）。\n点击【取消】：强行把所有旧记录一口气塞给AI重新总结（可能导致回答截断或失败）。`)) {
-                localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, messages.length);
-                window.showToast('书签已成功快进并对齐到最新位置！');
-                return; // 直接结束，不去请求 AI
-            }
-        }
-        // ==================================================
-
         if (unsummarizedMsgs.length < 2) {
             window.showToast('近期没有足够的新对话可供提取');
             return;
@@ -13423,6 +13430,7 @@ window.triggerManualSummary = async function() {
         const meChar = savedMeId && window.globalAvatarCache ? window.globalAvatarCache.find(c => c.id === savedMeId) : null;
         const myName = meChar ? meChar.name : '用户';
 
+        // ！！原封不动恢复你的时间戳提取逻辑！！
         let chatText = unsummarizedMsgs.map(m => {
             let speaker = m.role === 'user' ? myName : (isGroup ? (m.speakerName || '群员') : targetName);
             let timeStr = '';
@@ -13436,22 +13444,23 @@ window.triggerManualSummary = async function() {
         let customPrompt = localStorage.getItem('oc_phone_chat_mem_prompt_' + currentChatId) || '';
         let prompt = customPrompt.trim() !== '' ? customPrompt : '';
         
+        // ！！一字不差地恢复你最原始的 5 条严格提示词！！
         if (prompt === '') {
             if (isGroup) {
                 prompt = `你是一个记忆提取模块。请根据以下的群聊记录，撰写一份客观的群聊剧情摘要。
-                【核心要求】：
-                1. 视角：必须以【第三人称上帝视角】进行客观记录，清晰地写出每个人物（包括${myName}和其他群成员）的互动与事件。
-                2. 绝对客观：只记录发生了什么、大家讨论了什么、重要决定和约定。剥离繁复的情绪描写，文风平实克制。
-                3. 内容：提取群聊中的核心话题、冲突或关键情节。
-                4. 格式：直接输出正文段落。绝对禁止输出任何“标题”或表单列点。绝对不要用任何 Markdown 格式。
-                5. 字数控制：严格控制在 350 字以内，精炼紧凑。`;
+【核心要求】：
+1. 视角：必须以【第三人称上帝视角】进行客观记录，清晰地写出每个人物（包括${myName}和其他群成员）的互动与事件。
+2. 绝对客观：只记录发生了什么、大家讨论了什么、重要决定和约定。剥离繁复的情绪描写，文风平实克制。
+3. 内容：提取群聊中的核心话题、冲突或关键情节。
+4. 格式：直接输出正文段落。绝对禁止输出任何“标题”或表单列点。绝对不要用任何 Markdown 格式。
+5. 字数控制：严格控制在 350 字以内，精炼紧凑。`;
             } else {
                 prompt = `你是一个记忆提取模块。请根据以下对话记录，撰写一份客观的剧情摘要。
-                【核心要求】：
-                1. 视角与称呼：请以第一人称（即“我”）视角来记录，这个“我”代表【${targetName}】。指代对话的另一方（用户）时，必须使用名字【${myName}】！
-                2. 绝对客观：只记录发生了什么、双方表达了什么、重要约定。剥离情绪描写。
-                3. 格式纯净：直接输出正文段落。禁止输出标题或表单列点。
-                4. 字数控制：严格控制在 350 字以内，精炼紧凑。`;
+【核心要求】：
+1. 视角与称呼：请以第一人称（即“我”）视角来记录，这个“我”代表【${targetName}】。指代对话的另一方（用户）时，必须使用名字【${myName}】！
+2. 绝对客观：只记录发生了什么、双方表达了什么、重要约定。剥离情绪描写。
+3. 格式纯净：直接输出正文段落。禁止输出标题或表单列点。
+4. 字数控制：严格控制在 350 字以内，精炼紧凑。`;
             }
         }
         
@@ -13469,7 +13478,6 @@ window.triggerManualSummary = async function() {
                 endIndex: messages.length
             });
             await window.saveToDB('oc_phone_chat_memories_' + currentChatId, memories);
-
             localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, messages.length);
             
             window.showToast('提取成功！已生成新卡片');
@@ -13743,28 +13751,26 @@ window.deleteSingleChatMemory = async function(memId) {
     
     let memories = (await window.getFromDB('oc_phone_chat_memories_' + currentChatId)) || [];
     
-    // 找到准备删的那张卡片（看一眼它的背面信息）
-    let memToDelete = memories.find((m, i) => (m.id == memId) || (i == memId));
-    
+    // 1. 无情删掉你选中的那张垃圾卡片
     memories = memories.filter((m, i) => !((m.id == memId) || (i == memId)));
     await window.saveToDB('oc_phone_chat_memories_' + currentChatId, memories);
 
-    // 【智能时光倒流逻辑】
-    if (memToDelete && memToDelete.startIndex !== undefined) {
-        let currentIndex = parseInt(localStorage.getItem('oc_phone_chat_last_summary_index_' + currentChatId)) || 0;
-        // 如果当前书签刚好停在被删卡片的终点，说明你删的就是【最新的一章】！精准退回起点！
-        if (currentIndex === memToDelete.endIndex) {
-            localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, memToDelete.startIndex);
+    // ==================================================
+    // 【采用你的天才逻辑：直接扫描剩下所有卡片的最后书签】
+    // ==================================================
+    let maxIndex = 0;
+    memories.forEach(m => {
+        // 只要卡片还没被归档（还在起作用），就去翻它的背面找数字
+        if (m.isArchived !== true && m.endIndex && m.endIndex > maxIndex) {
+            maxIndex = m.endIndex;
         }
-    } else {
-        // 兜底补丁：如果发现活跃卡片全被删光了，强行归零重来
-        const activeMems = memories.filter(m => m.isArchived !== true);
-        if (activeMems.length === 0) {
-            localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, 0);
-        }
-    }
+    });
+    
+    // 2. 强行把书签重置为剩余卡片的最高进度！
+    localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, maxIndex);
+    // ==================================================
 
-    window.showToast('卡片已销毁，书签已退回，可重新提取');
+    window.showToast('卡片已销毁，书签已精准回退至第 ' + maxIndex + ' 条');
     await window.renderChatMemories();
 }
 
