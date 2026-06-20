@@ -13677,6 +13677,25 @@ window.openChatMemoryModal = async function() {
         if (document.getElementById('chat-mem-auto-summary')) document.getElementById('chat-mem-auto-summary').checked = autoSummary;
         if (document.getElementById('chat-mem-auto-turns')) document.getElementById('chat-mem-auto-turns').value = autoTurns;
 
+        // =========================================================
+        // 【新增魔法】：计算并显示当前的“积压进度条”！
+        // =========================================================
+        const messages = (await window.getFromDB('oc_phone_chat_' + currentChatId)) || [];
+        const lastIndex = parseInt(localStorage.getItem('oc_phone_chat_last_summary_index_' + currentChatId)) || 0;
+        // 计算目前有多少条没有被总结
+        const unsummarizedCount = Math.max(0, messages.length - lastIndex);
+        
+        const btnManual = document.getElementById('btn-manual-summary');
+        if (btnManual) {
+            // 如果开启了自动总结，就显示进度；没开启就只显示积压数量
+            if (autoSummary) {
+                btnManual.innerText = `手动提取 (即将满载: ${unsummarizedCount} / ${autoTurns}条)`;
+            } else {
+                btnManual.innerText = `手动提取 (已积压: ${unsummarizedCount}条)`;
+            }
+        }
+        // =========================================================
+
         // 强行等待数据库把所有记忆卡片在后台全部排版、渲染完毕！
         await window.renderChatMemories();
 
