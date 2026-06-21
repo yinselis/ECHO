@@ -19861,6 +19861,44 @@ const DB_NAME = 'OCPhoneDatabase';
 const STORE_NAME = 'WidgetData';
 let db;
 
+// ==========================================
+// 【核心修改】：LocalStorage 劫持与 IndexedDB 双向同步备份
+// ==========================================
+const originalSetItem = localStorage.setItem;
+const originalRemoveItem = localStorage.removeItem;
+const originalClear = localStorage.clear;
+const originalGetItem = localStorage.getItem;
+
+function syncLocalStorageToDB() {
+    if (!window.dbReadyForSync) return; // 数据库没准备好时不备份，防止开机覆盖
+    if (window._syncTimer) clearTimeout(window._syncTimer);
+    window._syncTimer = setTimeout(() => {
+        const data = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            data[key] = originalGetItem.call(localStorage, key);
+        }
+        if (typeof saveToDB === 'function') {
+            saveToDB('OC_PHONE_ALL_SETTINGS', data); // 统一打包存入大容量 DB
+        }
+    }, 500); // 延迟 500 毫秒，防止你在面板疯狂切开关导致卡顿
+}
+
+// 劫持所有写入动作
+localStorage.setItem = function(key, value) {
+    originalSetItem.call(localStorage, key, value);
+    syncLocalStorageToDB();
+};
+localStorage.removeItem = function(key) {
+    originalRemoveItem.call(localStorage, key);
+    syncLocalStorageToDB();
+};
+localStorage.clear = function() {
+    originalClear.call(localStorage);
+    syncLocalStorageToDB();
+};
+// ==========================================
+
 // 【确保主题和自定义设置在 DOM 渲染第一时间挂载】
 const savedTheme = localStorage.getItem('oc_phone_theme') || 'default';
 if (savedTheme !== 'default') {
@@ -19936,6 +19974,47 @@ function updateDots() {
 window.onload = async () => {
     const fill = document.getElementById('progress-fill');
     await initDB();
+    
+    // ==========================================
+    // 【核心修改】：开机第一时间从 IndexedDB 抢救被浏览器清空的设置！
+    // ==========================================
+    const savedSettings = await getFromDB('OC_PHONE_ALL_SETTINGS');
+    if (savedSettings) {
+        for (const key in savedSettings) {
+            // 使用原生的 setItem 恢复数据，避免触发循环备份
+            originalSetItem.call(localStorage, key, savedSettings[key]);
+        }
+        
+        // 恢复完数据后，重新挂载那些可能因为被清空而变成默认状态的主题和特效
+        const restoredTheme = originalGetItem.call(localStorage, 'oc_phone_theme') || 'default';
+        document.body.className = document.body.className.replace(/theme-\S+/g, '').trim();
+        if (restoredTheme !== 'default') document.body.classList.add(`theme-${restoredTheme}`);
+        
+        applyFontSettings(
+            originalGetItem.call(localStorage, 'oc_phone_font_size') || '100', 
+            originalGetItem.call(localStorage, 'oc_phone_font_weight') || '400'
+        );
+        
+        applyEffectsStyleOld(
+            originalGetItem.call(localStorage, 'oc_phone_glass_enabled') === 'true',
+            originalGetItem.call(localStorage, 'oc_phone_glass_blur') || '10',
+            originalGetItem.call(localStorage, 'oc_phone_app_anim_enabled') !== 'false',
+            originalGetItem.call(localStorage, 'oc_phone_anim_enabled') !== 'false',
+            originalGetItem.call(localStorage, 'oc_phone_anim_scale') || '105',
+            originalGetItem.call(localStorage, 'oc_phone_shadow_enabled') !== 'false',
+            originalGetItem.call(localStorage, 'oc_phone_blend_enabled') !== 'false',
+            originalGetItem.call(localStorage, 'oc_phone_complex_shadow_enabled') !== 'false'
+        );
+        
+        const restoredCSS = originalGetItem.call(localStorage, 'oc_phone_custom_css') || '';
+        if (restoredCSS) {
+            const cssTag = document.getElementById('user-custom-css');
+            if (cssTag) cssTag.innerHTML = restoredCSS;
+        }
+    }
+    window.dbReadyForSync = true; // 标记数据库已抢救完毕，放行后续的安全备份
+    // ==========================================
+
     setTimeout(() => { fill.style.width = '40%'; }, 200);
     
     const savedImage = await getFromDB('photo_widget_bg');
