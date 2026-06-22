@@ -19881,10 +19881,13 @@ function syncLocalStorageToDB() {
     if (window._syncTimer) clearTimeout(window._syncTimer);
     window._syncTimer = setTimeout(() => {
         const data = {};
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            data[key] = originalGetItem.call(localStorage, key);
-        }
+for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    // 【源头拦截】：只允许 ECHO 项目的数据进入数据库备份！
+    if (key.startsWith('oc_')) {
+        data[key] = originalGetItem.call(localStorage, key);
+    }
+}
         if (typeof saveToDB === 'function') {
             saveToDB('OC_PHONE_ALL_SETTINGS', data); // 统一打包存入大容量 DB
         }
@@ -21109,7 +21112,6 @@ function base64ToBlob(base64Data, contentType) {
 }
 
 // 导出核心逻辑
-// 导出核心逻辑 (增强了白名单垃圾隔离与模块挑选功能)
 window.exportAllData = async function() {
     const btn = document.getElementById('btn-confirm-export');
     if (btn) {
@@ -21119,62 +21121,18 @@ window.exportAllData = async function() {
 
     try {
         const qualitySetting = document.getElementById('export-image-quality') ? document.getElementById('export-image-quality').value : 'high';
-        
-        // 抓取用户勾选了哪些模块
-        const selectedModules = Array.from(document.querySelectorAll('.export-checkbox:checked')).map(cb => cb.value);
-        
-        // 【核心垃圾隔离过滤器】
-        const shouldExportKey = (key) => {
-            // 1. 强行把其他同源网页的垃圾数据挡在门外，只认我们自己的标准前缀！
-            if (!key.startsWith('oc_') && !key.startsWith('photo_widget') && !key.startsWith('custom_') && key !== 'OC_PHONE_ALL_SETTINGS') {
-                return false;
-            }
-
-            // 2. 基础系统设置与角色档案 (强制必选项)
-            if (selectedModules.includes('base')) {
-                if (key.startsWith('oc_phone_theme') || key.startsWith('oc_phone_font') || key.startsWith('oc_phone_api') || 
-                    key.startsWith('oc_phone_id_') || key.startsWith('oc_phone_lock') || key.startsWith('oc_sub_') ||
-                    key.startsWith('oc_phone_characters') || key === 'OC_PHONE_ALL_SETTINGS' || key.includes('shadow') || 
-                    key.includes('anim') || key.includes('glass') || key.includes('keep_alive') || key.includes('custom_css') ||
-                    key.startsWith('custom_wallpaper') || key.startsWith('custom_icon') || key.startsWith('photo_widget')) {
-                    return true;
-                }
-            }
-
-            // 3. 按模块智能分类放行
-            if (key.startsWith('oc_phone_chat_group_') || key.startsWith('oc_phone_groups')) {
-                return selectedModules.includes('group');
-            }
-            if (key.startsWith('oc_phone_chat_') || key.startsWith('oc_phone_contacts') || key.startsWith('oc_phone_blocked') || key.startsWith('oc_chat_real_tokens')) {
-                return selectedModules.includes('chat');
-            }
-            if (key.startsWith('oc_phone_diary') || key.startsWith('oc_diary_')) return selectedModules.includes('diary');
-            if (key.startsWith('oc_tm_')) return selectedModules.includes('tm');
-            if (key.startsWith('oc_wall_')) return selectedModules.includes('wall');
-            if (key.startsWith('oc_phone_forum_')) return selectedModules.includes('forum');
-            if (key.startsWith('oc_phone_mail_')) return selectedModules.includes('mail');
-            if (key.startsWith('oc_bottle_')) return selectedModules.includes('bottle');
-            if (key.startsWith('oc_phone_days')) return selectedModules.includes('capsule');
-            if (key.startsWith('oc_phone_map')) return selectedModules.includes('map');
-            if (key.startsWith('oc_phone_world_info')) return selectedModules.includes('cmd');
-            if (key.startsWith('oc_phone_oracle')) return selectedModules.includes('oracle');
-            if (key.startsWith('oc_phone_sticker')) return selectedModules.includes('sticker');
-
-            return false; // 如果以上都没命中，直接当垃圾扔掉！
-        };
-
         const blobParts = [];
         let currentChunkStr = "";
 
-        // 1. 打包 LocalStorage 里的设置项并写入第一块
-        const lsData = {};
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            // 过滤判断
-            if (shouldExportKey(key)) {
-                lsData[key] = localStorage.getItem(key);
-            }
-        }
+        // 1. 打包 LocalStorage 并作为第一块头部
+const lsData = {};
+for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    // 【新增】：只过滤并导出以 oc_ 开头的键，彻底隔绝以前其他网页的记录！
+    if (key.startsWith('oc_')) {
+        lsData[key] = localStorage.getItem(key);
+    }
+}
         
         const metaData = {
             app: "ECHO Backup",
@@ -21216,15 +21174,36 @@ window.exportAllData = async function() {
                 let val = records[i].value;
                 let key = records[i].key;
 
-                // 【核心拦截：调用上面的白名单函数判断】
-                if (!shouldExportKey(key)) {
-                    continue; 
+                // ==========================================
+                // 【核心拦截器】：导出时直接扔掉壁纸和无用大图！
+                // 你的头像(oc_phone_characters)、气泡预设 等绝对安全！
+                // ==========================================
+                if (key === 'custom_wallpaper' || 
+                    key.startsWith('oc_phone_chat_bg_') || 
+                    key.startsWith('photo_widget_bg') ||
+                    key.startsWith('custom_icon_')) {
+                    continue; // 遇到这些垃圾，直接跳过，绝不写进备份文件里！
                 }
+
+// ==========================================
+// 【深层洗胃】：如果读取到了那个超级大包裹，把里面的旧垃圾强行剔除！
+// ==========================================
+if (key === 'OC_PHONE_ALL_SETTINGS' && typeof val === 'object' && val !== null) {
+    const cleanVal = {};
+    for (let k in val) {
+        if (k.startsWith('oc_')) {
+            cleanVal[k] = val[k];
+        }
+    }
+    val = cleanVal;
+}
 
                 if (typeof val === 'string' && val.startsWith('data:image')) {
                     val = await compressImageToBase64(val, qualitySetting);
                 } else if (val instanceof Blob || val instanceof File) {
                     let b64 = await compressImageToBase64(val, qualitySetting);
+                    
+                    // 【原图防爆补丁】：原图转文本防卡死
                     if (b64 instanceof Blob || b64 instanceof File) {
                         b64 = await new Promise(res => {
                             const reader = new FileReader();
@@ -21251,7 +21230,7 @@ window.exportAllData = async function() {
         };
 
         await exportDB('OCPhoneDatabase', 'WidgetData', 1);
-        await exportDB('AestheticDesktopDB', 'allDataStore', 2); 
+        await exportDB('AestheticDesktopDB', 'allDataStore', 2); // 兼容可能存在的另一套DB
 
         // 把最后没装满的块塞进去
         if (currentChunkStr.length > 0) {
@@ -21259,17 +21238,19 @@ window.exportAllData = async function() {
         }
 
         // 3. 合成文件触发下载
-        const finalBlob = new Blob(blobParts, { type: "application/json;charset=utf-8" });
-        const url = URL.createObjectURL(finalBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,"");
-        a.download = `ECHO_Backup_${dateStr}.json`;
+// 关键1：将类型从 text/plain 改为 application/json，防止手机强制加 .txt
+const finalBlob = new Blob(blobParts, { type: "application/json;charset=utf-8" });
+const url = URL.createObjectURL(finalBlob);
+const a = document.createElement('a');
+a.href = url;
+const dateStr = new Date().toISOString().slice(0,10).replace(/-/g,"");
+// 关键2：直接使用通用的 .json 后缀，保证所有手机文件管理器都能选中并导入
+a.download = `ECHO_Backup_${dateStr}.json`;
         a.click();
         URL.revokeObjectURL(url);
         
         if(document.getElementById('export-options-modal')) document.getElementById('export-options-modal').classList.add('hidden');
-        alert('分片导出成功！已自动清理并剔除不相干的垃圾数据。');
+        alert('分片导出成功！已保存至本地。');
 
     } catch (e) {
         console.error(e);
@@ -21786,13 +21767,12 @@ window.importAllData = async function(event) {
     </div>
 </div>
 
-<!-- ================= 导出选项弹窗 (带精确分包导出功能) ================= -->
+<!-- ================= 导出选项弹窗 ================= -->
 <div id="export-options-modal" class="absolute inset-0 bg-black/40 backdrop-blur-sm z-[300] hidden flex flex-col items-center justify-center px-6 transition-opacity">
     <div class="sketch-box shape-2 bg-[var(--bg-paper)] p-6 w-full max-w-[18rem] flex flex-col shadow-2xl border-solid" style="border-width: 1px; border-color: var(--ink);">
         <h3 class="font-bold text-sm mb-4 border-b pb-2 tracking-widest text-center" style="border-color: var(--ink-light);">导出设置</h3>
         
-        <!-- 图片压缩设置 -->
-        <div class="flex flex-col space-y-2 mb-4 border-b pb-4" style="border-color: var(--ink-light);">
+        <div class="flex flex-col space-y-3 mb-6">
             <label class="font-bold text-xs" style="color: var(--ink);">图片保留与压缩画质</label>
             <select id="export-image-quality" class="w-full p-2 bg-white/50 border border-solid outline-none text-xs" style="border-color: var(--ink);">
                 <option value="original">保留原图 (文件最大)</option>
@@ -21801,36 +21781,12 @@ window.importAllData = async function(event) {
                 <option value="low">低画质压缩 (文件最小)</option>
                 <option value="none">不导出图片</option>
             </select>
+            <p class="text-[10px] opacity-60">注：图片较多时，选择原图可能导致导出极慢或崩溃，建议选择压缩。</p>
         </div>
 
-        <!-- 数据模块选择区 -->
-        <div class="flex flex-col space-y-2 mb-6">
-            <label class="font-bold text-xs" style="color: var(--ink);">选择要导出的数据模块</label>
-            <div class="grid grid-cols-2 gap-x-2 gap-y-3 max-h-[180px] overflow-y-auto custom-scrollbar p-3 bg-black/5 border border-solid" style="border-color: var(--ink-light);">
-                <label class="flex items-center space-x-1.5 text-[10px] opacity-60"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="base" checked disabled><span class="font-bold">基础设置与档案</span></label>
-                <label class="flex items-center space-x-1.5 text-[10px]"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="chat" checked><span>单聊与通讯录</span></label>
-                <label class="flex items-center space-x-1.5 text-[10px]"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="group" checked><span>群聊及群设定</span></label>
-                <label class="flex items-center space-x-1.5 text-[10px]"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="diary" checked><span>日记与手账本</span></label>
-                <label class="flex items-center space-x-1.5 text-[10px]"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="tm" checked><span>时光机与推演</span></label>
-                <label class="flex items-center space-x-1.5 text-[10px]"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="forum" checked><span>匿名论坛</span></label>
-                <label class="flex items-center space-x-1.5 text-[10px]"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="wall" checked><span>回音留言墙</span></label>
-                <label class="flex items-center space-x-1.5 text-[10px]"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="mail" checked><span>信箱与小报</span></label>
-                <label class="flex items-center space-x-1.5 text-[10px]"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="bottle" checked><span>漂流瓶</span></label>
-                <label class="flex items-center space-x-1.5 text-[10px]"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="map" checked><span>世界地图</span></label>
-                <label class="flex items-center space-x-1.5 text-[10px]"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="cmd" checked><span>指令集世界书</span></label>
-                <label class="flex items-center space-x-1.5 text-[10px]"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="capsule" checked><span>纪念日</span></label>
-                <label class="flex items-center space-x-1.5 text-[10px]"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="sticker" checked><span>表情包库</span></label>
-                <label class="flex items-center space-x-1.5 text-[10px]"><input type="checkbox" class="export-checkbox accent-[var(--ink)]" value="oracle" checked><span>神谕占卜</span></label>
-            </div>
-            <div class="flex justify-between items-center px-1 pt-1">
-                <span class="text-[9px] opacity-60">未勾选的模块将被排除且清理垃圾</span>
-                <button onclick="document.querySelectorAll('.export-checkbox:not(:disabled)').forEach(cb => cb.checked = !cb.checked)" class="text-[10px] font-bold opacity-70 active:scale-95 text-blue-600">反选 / 全选</button>
-            </div>
-        </div>
-
-        <div class="flex justify-between space-x-3 mt-auto">
-            <button onclick="document.getElementById('export-options-modal').classList.add('hidden')" class="sketch-box shape-1 px-4 py-2.5 font-bold bg-white/50 border-solid text-sm active:scale-95 flex-1 opacity-70" style="border-width: 1px; border-color: var(--ink);">取消</button>
-            <button onclick="window.exportAllData()" id="btn-confirm-export" class="sketch-box shape-2 px-4 py-2.5 font-bold bg-white/90 border-solid text-sm tracking-widest active:scale-95 flex-[2]" style="border-width: 1px; border-color: var(--ink); color: var(--ink) !important;">开始导出</button>
+        <div class="flex justify-between space-x-3">
+            <button onclick="document.getElementById('export-options-modal').classList.add('hidden')" class="sketch-box shape-1 px-4 py-2 font-bold bg-white/50 border-solid text-sm active:scale-95 flex-1 opacity-70" style="border-width: 1px; border-color: var(--ink);">取消</button>
+            <button onclick="window.exportAllData()" id="btn-confirm-export" class="sketch-box shape-2 px-4 py-2 font-bold bg-white/90 border-solid text-sm tracking-widest active:scale-95 flex-[2]" style="border-width: 1px; border-color: var(--ink); color: var(--ink) !important;">开始导出</button>
         </div>
     </div>
 </div>
