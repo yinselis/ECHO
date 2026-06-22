@@ -13689,9 +13689,8 @@ window.openChatMemoryModal = async function() {
         // =========================================================
         const messages = (await window.getFromDB('oc_phone_chat_' + currentChatId)) || [];
         const lastIndex = parseInt(localStorage.getItem('oc_phone_chat_last_summary_index_' + currentChatId)) || 0;
-        // 🚨 强行拉回进度
-        localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, messages.length);
-        const unsummarizedCount = 0;
+        // 计算目前有多少条没有被总结
+        const unsummarizedCount = Math.max(0, messages.length - lastIndex);
         
         const btnManual = document.getElementById('btn-manual-summary');
         if (btnManual) {
