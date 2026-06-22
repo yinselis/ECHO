@@ -13544,7 +13544,7 @@ let lastIndex = parseInt(localStorage.getItem('oc_phone_chat_last_summary_index_
 const messages = (await window.getFromDB('oc_phone_chat_' + charId)) || [];
 
 // 【防呆补丁】
-if (lastIndex > messages.length) {
+if (messages.length > 0 && lastIndex > messages.length) {
     lastIndex = 0;
     localStorage.setItem('oc_phone_chat_last_summary_index_' + charId, 0);
 }
@@ -13689,8 +13689,9 @@ window.openChatMemoryModal = async function() {
         // =========================================================
         const messages = (await window.getFromDB('oc_phone_chat_' + currentChatId)) || [];
         const lastIndex = parseInt(localStorage.getItem('oc_phone_chat_last_summary_index_' + currentChatId)) || 0;
-        // 计算目前有多少条没有被总结
-        const unsummarizedCount = Math.max(0, messages.length - lastIndex);
+        // 🚨 强行拉回进度
+        localStorage.setItem('oc_phone_chat_last_summary_index_' + currentChatId, messages.length);
+        const unsummarizedCount = 0;
         
         const btnManual = document.getElementById('btn-manual-summary');
         if (btnManual) {
