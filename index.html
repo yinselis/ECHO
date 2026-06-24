@@ -10805,25 +10805,38 @@ if (data.usage && data.usage.total_tokens) {
     localStorage.setItem('oc_chat_real_tokens_' + currentChatId, data.usage.total_tokens);
 }
 
-let reply = data.choices[0].message.content.trim();
+// 【修复空气泡1】：拦截200状态下的风控报错或空内容
+let reply = '';
+if (data.error) {
+    throw new Error("API报错/触发风控: " + (data.error.message || JSON.stringify(data.error)));
+} else if (data.choices && data.choices.length > 0 && data.choices[0].message && data.choices[0].message.content) {
+    reply = data.choices[0].message.content.trim();
+} else {
+    throw new Error("模型返回了空数据 (可能破甲失败/触发审查)。详情: " + JSON.stringify(data));
+}
 // 【新增拦截】：强行剔除 AI 模仿生成的假时间戳，防止满屏都是 [06-13 18:58]
 reply = reply.replace(/\[\d{2}-\d{2}\s\d{2}:\d{2}\]\s*/g, '').trim();
         // ================= 【新增】：解析剥离心声数据 =================
         let parsedObservation = null;
         if (enableInnerVoice) {
-            const obsMatch = reply.match(/\[OBSERVATION:\s*([\s\S]*?)\]/i);
-            if (obsMatch) {
-                const parts = obsMatch[1].split('||').map(s => s.trim());
-                parsedObservation = {
-                    mood: parts[0] || '未知',
-                    action: parts[1] || '无明显动作',
-                    details: parts[2] || '无特殊特征',
-                    thought: parts[3] || '...'
-                };
-                // 从回复中把心声部分删掉，防止被当成气泡发出来
-                reply = reply.replace(obsMatch[0], '').trim();
-            }
-        }
+    const obsMatch = reply.match(/\[OBSERVATION:\s*([\s\S]*?)\]/i);
+    if (obsMatch) {
+        const parts = obsMatch[1].split('||').map(s => s.trim());
+        parsedObservation = {
+            mood: parts[0] || '未知',
+            action: parts[1] || '无明显动作',
+            details: parts[2] || '无特殊特征',
+            thought: parts[3] || '...'
+        };
+        // 从回复中把心声部分删掉，防止被当成气泡发出来
+        reply = reply.replace(obsMatch[0], '').trim();
+    }
+}
+
+// 【修复空气泡2】：如果剥离心声后，发现它连一句话都没说
+if (!reply) {
+    throw new Error("模型只输出了内心的想法，把正文忘了输出。这通常是因为破甲失败或AI犯傻。");
+}
 
 // 【新增拦截补丁：拯救笨模型】专门修复模型忘记打[译:xxx]以及忘记分气泡的毛病
 if (enableBilingual && !reply.includes('[译:')) {
