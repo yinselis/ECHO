@@ -3069,11 +3069,20 @@ body, html {
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
                 </div>
                 
-                <!-- 2. 图片 -->
+<!-- 2. 图片 -->
                 <div onclick="document.getElementById('chat-real-image-upload').click()" class="shrink-0 cursor-pointer active:scale-90 transition-all flex items-center justify-center w-10 h-10 rounded-full bg-black/5 hover:bg-black/10 text-[var(--ink)] opacity-70">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                 </div>
                 
+                <!-- 👇👇👇 请把你刚才复制的假图按钮，粘贴在这个位置！ 👇👇👇 -->
+                
+                <!-- 🌟 新增：环境假图 🌟 -->
+                <div onclick="window.triggerEchoFakeImage()" class="shrink-0 cursor-pointer active:scale-90 transition-all flex items-center justify-center w-10 h-10 rounded-full bg-black/5 hover:bg-black/10 text-[var(--ink)] opacity-70">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h4l2.5-4 5 10L17 12h5"></path><rect x="3" y="3" width="18" height="18" rx="2" ry="2" stroke-dasharray="4 4"></rect></svg>
+                </div>
+
+                <!-- 👆👆👆 粘贴完毕！ 👆👆👆 -->
+
                 <!-- 3. 语音 (已绑定) -->
                 <div onclick="triggerEchoVoice()" class="shrink-0 cursor-pointer active:scale-90 transition-all flex items-center justify-center w-10 h-10 rounded-full bg-black/5 hover:bg-black/10 text-[var(--ink)] opacity-70">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
@@ -12463,6 +12472,31 @@ async function sendEchoSpecialMessage(type, content, voiceDuration = 0, rpAmount
     
     await renderChatMessages(true); 
 }
+
+// ==========================================
+// 绝美假图 (文本伪装图片) 发送模块
+// ==========================================
+window.triggerEchoFakeImage = function() {
+    if (!currentChatId) { window.showToast('请先进入通讯频段'); return; }
+    
+    // 调用内置的高冷双输入框弹窗
+    showEchoDoubleDialog(
+        '生成环境图像', 
+        '输入画面描述，系统将渲染为图片卡片发送', 
+        '画面主体 (如：一杯冒着热气的咖啡)', 
+        '环境/氛围 (如：胶片质感, 傍晚) [可不填]', 
+        async (val1, val2) => {
+            if (!val1 && !val2) { window.showToast('画面描述不能为空'); return; }
+            
+            // 拼接画面描述
+            let finalDesc = val1;
+            if (val2) finalDesc += `\n[ ${val2} ]`; 
+            
+            // 直接调用核心发送函数，类型指定为 'fake_image'
+            await sendEchoSpecialMessage('fake_image', finalDesc, 0, 0);
+        }
+    );
+};
 
 // ==========================================
 // 绑定到加号面板的点击事件
